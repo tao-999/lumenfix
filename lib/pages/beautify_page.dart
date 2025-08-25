@@ -8,6 +8,7 @@ import '../../services/photo_saver.dart';                // ✅ 保存到相册�
 import '../../services/whiten_service.dart';      // ✅ 智能一键美化（封装）
 
 import '../services/crop_service.dart';
+import '../services/doodle_service.dart';
 import '../services/mosaic_service.dart';
 import '../widgets/beautify/beautify_bottom_bar.dart';   // 纯工具底栏（不含“添加图片”）
 import '../widgets/common/empty_pick_image.dart';        // ✅ 空态组件
@@ -156,6 +157,16 @@ class _BeautifyPageState extends State<BeautifyPage> {
               }
               if (m == BeautifyMenu.mosaic) {
                 final out = await MosaicService.openEditor(context, _imageBytes!);
+                if (out != null) {
+                  setState(() {
+                    _imageBytes = out;
+                    _selected = null;
+                  });
+                }
+                return;
+              }
+              if (m == BeautifyMenu.doodle) {
+                final out = await DoodleService.openEditor(context, _imageBytes!);
                 if (out != null) {
                   setState(() {
                     _imageBytes = out;
