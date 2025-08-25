@@ -7,6 +7,7 @@ import '../../services/gallery_picker.dart';              // 相册选择（WeCh
 import '../../services/photo_saver.dart';                // ✅ 保存到相册（封装）
 import '../../services/whiten_service.dart';      // ✅ 智能一键美化（封装）
 
+import '../services/adjust_service.dart';
 import '../services/bokeh_service.dart';
 import '../services/crop_service.dart';
 import '../services/doodle_service.dart';
@@ -178,6 +179,16 @@ class _BeautifyPageState extends State<BeautifyPage> {
               }
               if (m == BeautifyMenu.bokeh) {
                 final out = await BokehService.openEditor(context, _imageBytes!);
+                if (out != null) {
+                  setState(() {
+                    _imageBytes = out;
+                    _selected = null;
+                  });
+                }
+                return;
+              }
+              if (m == BeautifyMenu.adjust) {
+                final out = await AdjustService.openEditor(context, _imageBytes!);
                 if (out != null) {
                   setState(() {
                     _imageBytes = out;
