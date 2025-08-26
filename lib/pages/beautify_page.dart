@@ -1,11 +1,13 @@
 // lib/pages/beautify_page.dart
 import 'dart:typed_data';
 import 'dart:io' show Platform;
+import 'dart:ui' as ui; // ⬅️ 新增：通用解码/画布铺底
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img; // ⬅️ 新增：JPEG 编码
 
 import '../../services/gallery_picker.dart';              // 相册选择（WeChat Picker 封装）
 import '../../services/photo_saver.dart';                // ✅ 保存到相册（封装）
-import '../../services/whiten_service.dart';      // ✅ 智能一键美化（封装）
+import '../../services/whiten_service.dart';             // ✅ 智能一键美化（封装）
 
 import '../services/adjust_service.dart';
 import '../services/bokeh_service.dart';
@@ -30,8 +32,12 @@ class _BeautifyPageState extends State<BeautifyPage> {
   Future<void> _pickImage() async {
     final bytes = await GalleryPicker.pickOneBytes(context);
     if (!mounted || bytes == null) return;
+
+    // ✅ 统一转为 JPEG(80%)，所有格式一视同仁；透明图会铺白底
+    final optimized = await _transcodeToJpeg80(bytes, quality: 80);
+
     setState(() {
-      _imageBytes = bytes;
+      _imageBytes = optimized;
       _selected = null;
     });
   }
@@ -206,5 +212,49 @@ class _BeautifyPageState extends State<BeautifyPage> {
         ],
       ),
     );
+  }
+
+  // =========================
+  //   任意格式 → JPEG(quality)
+  //   透明图：自动铺白底
+  // =========================
+  Future<Uint8List> _transcodeToJpeg80(Uint8List inputBytes, {int quality = 80}) async {
+    try {
+      // 1) 用 ui 的 codec 解码（支持系统能解的几乎所有格式，含 HEIC）
+      final codec = await ui.instantiateImageCodec(inputBytes);
+      final frame = await codec.getNextFrame();
+      final src = frame.image;
+
+      // 2) 铺白底（避免 PNG/WebP 透明变黑）
+      final rec = ui.PictureRecorder();
+      final canvas = Canvas(rec);
+      final w = src.width.toDouble();
+      final h = src.height.toDouble();
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, w, h),
+        Paint()..color = Colors.white,
+      );
+      canvas.drawImage(src, Offset.zero, Paint());
+      final flattened = await rec.endRecording().toImage(src.width, src.height);
+
+      // 3) 取 RGBA，交给 image 包编码 JPEG(quality)
+      final bd = await flattened.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final rgba = bd!.buffer.asUint8List();
+
+      // image 4.x：fromBytes 接口（保持 RGBA 通道顺序）
+      final im = img.Image.fromBytes(
+        width: flattened.width,
+        height: flattened.height,
+        bytes: rgba.buffer,
+        numChannels: 4,
+        order: img.ChannelOrder.rgba,
+      );
+
+      final out = img.encodeJpg(im, quality: quality);
+      return Uint8List.fromList(out);
+    } catch (_) {
+      // 兜底：解码失败就原样返回，避免崩
+      return inputBytes;
+    }
   }
 }
