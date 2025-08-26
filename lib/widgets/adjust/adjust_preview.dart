@@ -5,18 +5,19 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
-// —— 参数类型（统一从 params/ 导入）——
+// —— 参数类型：从 params/ 统一导出 —— //
 import 'params/params.dart';
 
 // —— 引擎 —— //
 import 'engine/hsl_engine.dart';
 import 'engine/color_balance.dart';
 import 'engine/selective_color.dart';
-import 'engine/black_white_engine.dart';
 import 'engine/channel_mixer_engine.dart';
+import 'engine/black_white_engine.dart';
 import 'engine/photo_filter_engine.dart';
 import 'engine/shadows_highlights.dart';
 import 'engine/vibrance.dart';
+import 'engine/invert_engine.dart';
 
 class AdjustPreview extends StatefulWidget {
   const AdjustPreview({
@@ -24,23 +25,24 @@ class AdjustPreview extends StatefulWidget {
     required this.orig,
     required this.fitRect,
 
-    // 基础
+    // —— 基础 —— //
     required this.bc,
     required this.exposure,
     required this.levels,
     required this.curves,
 
-    // 颜色
+    // —— 颜色 —— //
     required this.hsl,
     required this.colorBalance,
     required this.selectiveColor,
     required this.mixer,
     required this.bw,
     required this.photoFilter,
+    required this.sh,
     required this.vibrance,
 
-    // 阴影/高光
-    required this.sh,
+    // —— 特殊 —— //
+    required this.invert,
   });
 
   final ui.Image orig;
@@ -48,7 +50,7 @@ class AdjustPreview extends StatefulWidget {
 
   // —— 基础 —— //
   final BrightnessContrast bc;
-  final ExposureParams exposure; // ev + offset + gamma
+  final ExposureParams exposure;
   final LevelsParams levels;
   final CurvesParams curves;
 
@@ -59,10 +61,13 @@ class AdjustPreview extends StatefulWidget {
   final ChannelMixerParams mixer;
   final BlackWhiteParams bw;
   final PhotoFilterParams photoFilter;
+
+  // —— 局部光照 & 饱和 —— //
+  final ShadowsHighlightsParams sh;
   final VibranceParams vibrance;
 
-  // —— 阴影/高光 —— //
-  final ShadowsHighlightsParams sh;
+  // —— 特殊 —— //
+  final InvertParams invert;
 
   @override
   State<AdjustPreview> createState() => _AdjustPreviewState();
@@ -111,9 +116,17 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       curves: widget.curves,
     );
 
-    // —— 合成顺序 —— //
-    // LUT → HSL → ColorBalance → SelectiveColor → ChannelMixer → BlackWhite
-    // → PhotoFilter → Shadows/Highlights → Vibrance
+    // —— 合成顺序（对齐你现在的诉求）——
+    // 1) LUT
+    // 2) HSL
+    // 3) 色彩平衡
+    // 4) 可选颜色
+    // 5) 通道混合器
+    // 6) 黑白
+    // 7) 照片滤镜
+    // 8) 阴影/高光
+    // 9) 自然饱和度/饱和度
+    // 10) 反相（最后一步）
     final cooked = await _applyPipeline(
       frame,
       lut,
@@ -125,6 +138,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       widget.photoFilter,
       widget.sh,
       widget.vibrance,
+      widget.invert,
     );
 
     if (!mounted) return;
@@ -192,7 +206,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
   }
 
   /* =========================
-   *   LUT + HSL + CB + SC + MIX + BW + PF + SH + Vibrance 管线
+   *   LUT + HSL + CB + SC + MIX + BW + PF + SH + Vibrance + Invert
    * ========================= */
 
   _RgbLut _buildCombinedLuts({
@@ -339,6 +353,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       PhotoFilterParams pf,
       ShadowsHighlightsParams sh,
       VibranceParams vibrance,
+      InvertParams invert,            // ✅ 不漏逻辑：增加反相
       ) async {
     final w = src.width, h = src.height;
     final bd = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -398,6 +413,11 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       VibranceEngine.applyToRgbaInPlace(bytes, w, h, vibrance);
     }
 
+    // 10) 反相（最后一步，确保对最终画面）
+    if (!invert.isNeutral) {
+      InvertEngine.applyToRgbaInPlace(bytes, w, h, invert);
+    }
+
     final c = Completer<ui.Image>();
     ui.decodeImageFromPixels(bytes, w, h, ui.PixelFormat.rgba8888, c.complete);
     return c.future;
@@ -411,24 +431,17 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     return true;
   }
 
-// 是否为“中性”的通道混合器：矩阵≈单位，偏置≈0
-  bool _mixerIsNeutral(ChannelMixerParams m) {
-    const List<double> id = <double>[1, 0, 0,  0, 1, 0,  0, 0, 1];
-    const double eps = 1e-6;
-
-    // 矩阵是否接近单位矩阵
+  bool _mixerIsNeutral(ChannelMixerParams p) {
+    if (p.matrix.length != 9 || p.offset.length != 3) return false;
+    const id = <double>[1, 0, 0,  0, 1, 0,  0, 0, 1];
     for (int i = 0; i < 9; i++) {
-      if ((m.matrix[i] - id[i]).abs() > eps) return false;
+      if ((p.matrix[i] - id[i]).abs() > 1e-9) return false;
     }
-
-    // 偏置是否为 0
-    for (int i = 0; i < 3; i++) {
-      if (m.offset[i].abs() > eps) return false;
-    }
-
+    if (p.offset[0].abs() > 1e-9) return false;
+    if (p.offset[1].abs() > 1e-9) return false;
+    if (p.offset[2].abs() > 1e-9) return false;
     return true;
   }
-
 }
 
 class _RgbLut {

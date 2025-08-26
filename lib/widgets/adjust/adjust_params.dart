@@ -19,9 +19,7 @@ class AdjustParams {
   final P.PhotoFilterParams photoFilter;
 
   // —— 高级调色 —— //
-  // （PS 调整里没有“调色分级”，因此不再聚合 Grade3Way）
   final P.ChannelMixerParams mixer;
-  final P.LutParams lut;
   final P.GradientMapParams gradientMap;
 
   // —— 特殊 —— //
@@ -50,7 +48,6 @@ class AdjustParams {
 
     // 高级调色
     this.mixer = const P.ChannelMixerParams(),
-    this.lut = const P.LutParams(),
     this.gradientMap = const P.GradientMapParams(),
 
     // 特殊
@@ -80,7 +77,6 @@ class AdjustParams {
 
     // 高级调色
     P.ChannelMixerParams? mixer,
-    P.LutParams? lut,
     P.GradientMapParams? gradientMap,
 
     // 特殊
@@ -109,7 +105,6 @@ class AdjustParams {
 
       // 高级调色
       mixer: mixer ?? this.mixer,
-      lut: lut ?? this.lut,
       gradientMap: gradientMap ?? this.gradientMap,
 
       // 特殊

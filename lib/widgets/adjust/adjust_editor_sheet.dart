@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:lumenfix/widgets/adjust/panel/blackwhite_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/channel_mixer_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/color_balance_panel.dart';
+import 'package:lumenfix/widgets/adjust/panel/invert_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/photo_filter_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/selective_color_panel.dart';
 
@@ -133,6 +134,7 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
                   bw: _params.bw,
                   photoFilter: _params.photoFilter,
                   mixer: _params.mixer,
+                  invert: _params.invert,
                 ),
               ),
 
@@ -279,6 +281,13 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
           onChanged: (v) => setState(() => _params = _params.copyWith(mixer: v)),
           onCommit: () => setState(() {}),
         );
+      case AdjustAction.invert:
+        return InvertPanel(
+          value: _params.invert,
+          onChanged: (v) => setState(() => _params = _params.copyWith(invert: v)),
+          onCommit: () => setState(() {}),
+        );
+
       default:
         return _PlaceholderPanel(labelForAdjustAction(_current));
     }

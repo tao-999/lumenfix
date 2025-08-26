@@ -1,3 +1,4 @@
+// lib/widgets/adjust/params/params.dart
 export 'brightness_contrast_params.dart';
 export 'exposure_params.dart';
 export 'levels_params.dart';
@@ -11,7 +12,6 @@ export 'black_white_params.dart';
 export 'photo_filter_params.dart';
 export 'desaturate_params.dart';
 export 'channel_mixer_params.dart';
-export 'lut_params.dart';
 export 'gradient_map_params.dart';
 export 'invert_params.dart';
 export 'threshold_params.dart';

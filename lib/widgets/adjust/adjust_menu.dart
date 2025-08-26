@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// —— 功能枚举 —— //
-// 1) enum
 enum AdjustAction {
   brightnessContrast,
   levels,
@@ -15,19 +14,18 @@ enum AdjustAction {
   blackWhite,
   photoFilter,
   channelMixer,
-  colorLookupLUT,
   invert,
   posterize,
   threshold,
   gradientMap,
   selectiveColor,
   shadowsHighlights,
-  desaturate,        // ✅ 新增：去色
+  desaturate,        // 去色
   matchColor,
   replaceColor,
 }
 
-// 2) 文案
+/// —— 文案 —— //
 String labelForAdjustAction(AdjustAction a) {
   switch (a) {
     case AdjustAction.brightnessContrast: return '亮度/对比度';
@@ -40,20 +38,19 @@ String labelForAdjustAction(AdjustAction a) {
     case AdjustAction.blackWhite:         return '黑白';
     case AdjustAction.photoFilter:        return '照片滤镜';
     case AdjustAction.channelMixer:       return '通道混合器';
-    case AdjustAction.colorLookupLUT:     return '颜色查找(LUT)';
     case AdjustAction.invert:             return '反相';
     case AdjustAction.posterize:          return '色调分离';
     case AdjustAction.threshold:          return '阈值';
     case AdjustAction.gradientMap:        return '渐变映射';
     case AdjustAction.selectiveColor:     return '可选颜色';
     case AdjustAction.shadowsHighlights:  return '阴影/高光';
-    case AdjustAction.desaturate:         return '去色';                 // ✅
+    case AdjustAction.desaturate:         return '去色';
     case AdjustAction.matchColor:         return '匹配颜色';
     case AdjustAction.replaceColor:       return '替换颜色';
   }
 }
 
-// 3) 图标
+/// —— 图标 —— //
 IconData iconForAdjustAction(AdjustAction a) {
   switch (a) {
     case AdjustAction.brightnessContrast: return Icons.brightness_6_outlined;
@@ -66,20 +63,19 @@ IconData iconForAdjustAction(AdjustAction a) {
     case AdjustAction.blackWhite:         return Icons.filter_b_and_w;
     case AdjustAction.photoFilter:        return Icons.photo_filter_outlined;
     case AdjustAction.channelMixer:       return Icons.grid_3x3_outlined;
-    case AdjustAction.colorLookupLUT:     return Icons.apps_outlined;
     case AdjustAction.invert:             return Icons.invert_colors;
     case AdjustAction.posterize:          return Icons.filter_hdr_outlined;
     case AdjustAction.threshold:          return Icons.tonality;
     case AdjustAction.gradientMap:        return Icons.gradient_outlined;
     case AdjustAction.selectiveColor:     return Icons.colorize;
     case AdjustAction.shadowsHighlights:  return Icons.tonality_outlined;
-    case AdjustAction.desaturate:         return Icons.water_drop_outlined;  // ✅ 任意合适图标
+    case AdjustAction.desaturate:         return Icons.water_drop_outlined;
     case AdjustAction.matchColor:         return Icons.compare_outlined;
     case AdjustAction.replaceColor:       return Icons.swap_horiz_outlined;
   }
 }
 
-// 4) 菜单顺序（按你截图）
+/// —— 菜单顺序 —— //
 const List<AdjustAction> kAllAdjustActions = [
   AdjustAction.brightnessContrast,
   AdjustAction.levels,
@@ -91,14 +87,13 @@ const List<AdjustAction> kAllAdjustActions = [
   AdjustAction.blackWhite,
   AdjustAction.photoFilter,
   AdjustAction.channelMixer,
-  AdjustAction.colorLookupLUT,
   AdjustAction.invert,
   AdjustAction.posterize,
   AdjustAction.threshold,
   AdjustAction.gradientMap,
   AdjustAction.selectiveColor,
   AdjustAction.shadowsHighlights,
-  AdjustAction.desaturate,     // ✅
+  AdjustAction.desaturate,
   AdjustAction.matchColor,
   AdjustAction.replaceColor,
 ];
@@ -208,8 +203,7 @@ class _IconTextChip extends StatelessWidget {
                 child: Text(
                   text,
                   style: const TextStyle(color: Colors.white, height: 1.2),
-                  strutStyle:
-                  const StrutStyle(forceStrutHeight: true, height: 1.2),
+                  strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   softWrap: false,
