@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
-// —— 参数类型（从 params/ 导出的一处真源）——
+// —— 参数类型（统一从 params/ 导入）——
 import 'params/params.dart';
 
 // —— 引擎 —— //
@@ -13,6 +13,8 @@ import 'engine/hsl_engine.dart';
 import 'engine/color_balance.dart';
 import 'engine/selective_color.dart';
 import 'engine/black_white_engine.dart';
+import 'engine/channel_mixer_engine.dart';
+import 'engine/photo_filter_engine.dart';
 import 'engine/shadows_highlights.dart';
 import 'engine/vibrance.dart';
 
@@ -32,7 +34,9 @@ class AdjustPreview extends StatefulWidget {
     required this.hsl,
     required this.colorBalance,
     required this.selectiveColor,
+    required this.mixer,
     required this.bw,
+    required this.photoFilter,
     required this.vibrance,
 
     // 阴影/高光
@@ -52,7 +56,9 @@ class AdjustPreview extends StatefulWidget {
   final HslParams hsl;
   final ColorBalanceParams colorBalance;
   final SelectiveColorParams selectiveColor;
+  final ChannelMixerParams mixer;
   final BlackWhiteParams bw;
+  final PhotoFilterParams photoFilter;
   final VibranceParams vibrance;
 
   // —— 阴影/高光 —— //
@@ -105,14 +111,18 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       curves: widget.curves,
     );
 
-    // —— 合成顺序：LUT → HSL → ColorBalance → SelectiveColor → BlackWhite → SH → Vibrance —— //
+    // —— 合成顺序 —— //
+    // LUT → HSL → ColorBalance → SelectiveColor → ChannelMixer → BlackWhite
+    // → PhotoFilter → Shadows/Highlights → Vibrance
     final cooked = await _applyPipeline(
       frame,
       lut,
       widget.hsl,
       widget.colorBalance,
       widget.selectiveColor,
+      widget.mixer,
       widget.bw,
+      widget.photoFilter,
       widget.sh,
       widget.vibrance,
     );
@@ -182,7 +192,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
   }
 
   /* =========================
-   *   LUT + HSL + CB + SC + BW + SH + Vibrance 管线
+   *   LUT + HSL + CB + SC + MIX + BW + PF + SH + Vibrance 管线
    * ========================= */
 
   _RgbLut _buildCombinedLuts({
@@ -324,7 +334,9 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       HslParams hsl,
       ColorBalanceParams cb,
       SelectiveColorParams sc,
+      ChannelMixerParams mix,
       BlackWhiteParams bw,
+      PhotoFilterParams pf,
       ShadowsHighlightsParams sh,
       VibranceParams vibrance,
       ) async {
@@ -349,17 +361,27 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       ColorBalanceEngine.applyToRgbaInPlace(bytes, w, h, cb);
     }
 
-    // 3.5) 可选颜色
+    // 4) 可选颜色
     if (!sc.isNeutral) {
       SelectiveColorEngine.applyToRgbaInPlace(bytes, w, h, sc);
     }
 
-    // 3.8) 黑白
+    // 5) 通道混合器
+    if (!_mixerIsNeutral(mix)) {
+      ChannelMixerEngine.applyToRgbaInPlace(bytes, w, h, mix);
+    }
+
+    // 6) 黑白
     if (bw.enabled) {
       BlackWhiteEngine.applyToRgbaInPlace(bytes, w, h, bw);
     }
 
-    // 4) 阴影/高光
+    // 7) 照片滤镜
+    if (pf.density > 0) {
+      PhotoFilterEngine.applyToRgbaInPlace(bytes, w, h, pf);
+    }
+
+    // 8) 阴影/高光
     final needSH = sh.shAmount != 0 ||
         sh.hiAmount != 0 ||
         sh.color != 0 ||
@@ -371,7 +393,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       ShadowsHighlightsEngine.applyToRgbaInPlace(bytes, w, h, sh);
     }
 
-    // 5) 自然饱和度 / 饱和度
+    // 9) 自然饱和度 / 饱和度
     if (vibrance.vibrance != 0 || vibrance.saturation != 0) {
       VibranceEngine.applyToRgbaInPlace(bytes, w, h, vibrance);
     }
@@ -388,6 +410,25 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     }
     return true;
   }
+
+// 是否为“中性”的通道混合器：矩阵≈单位，偏置≈0
+  bool _mixerIsNeutral(ChannelMixerParams m) {
+    const List<double> id = <double>[1, 0, 0,  0, 1, 0,  0, 0, 1];
+    const double eps = 1e-6;
+
+    // 矩阵是否接近单位矩阵
+    for (int i = 0; i < 9; i++) {
+      if ((m.matrix[i] - id[i]).abs() > eps) return false;
+    }
+
+    // 偏置是否为 0
+    for (int i = 0; i < 3; i++) {
+      if (m.offset[i].abs() > eps) return false;
+    }
+
+    return true;
+  }
+
 }
 
 class _RgbLut {

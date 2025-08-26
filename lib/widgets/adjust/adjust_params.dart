@@ -19,12 +19,13 @@ class AdjustParams {
   final P.PhotoFilterParams photoFilter;
 
   // —— 高级调色 —— //
-  final P.Grade3WayParams grade;
+  // （PS 调整里没有“调色分级”，因此不再聚合 Grade3Way）
   final P.ChannelMixerParams mixer;
   final P.LutParams lut;
   final P.GradientMapParams gradientMap;
 
   // —— 特殊 —— //
+  final P.DesaturateParams desaturate;   // ✅ 新增：去色
   final P.InvertParams invert;
   final P.ThresholdParams threshold;
   final P.PosterizeParams posterize;
@@ -48,12 +49,12 @@ class AdjustParams {
     this.photoFilter = const P.PhotoFilterParams(),
 
     // 高级调色
-    this.grade = const P.Grade3WayParams(),
     this.mixer = const P.ChannelMixerParams(),
     this.lut = const P.LutParams(),
     this.gradientMap = const P.GradientMapParams(),
 
     // 特殊
+    this.desaturate = const P.DesaturateParams(), // ✅ 默认关闭
     this.invert = const P.InvertParams(),
     this.threshold = const P.ThresholdParams(),
     this.posterize = const P.PosterizeParams(),
@@ -78,12 +79,12 @@ class AdjustParams {
     P.PhotoFilterParams? photoFilter,
 
     // 高级调色
-    P.Grade3WayParams? grade,
     P.ChannelMixerParams? mixer,
     P.LutParams? lut,
     P.GradientMapParams? gradientMap,
 
     // 特殊
+    P.DesaturateParams? desaturate,
     P.InvertParams? invert,
     P.ThresholdParams? threshold,
     P.PosterizeParams? posterize,
@@ -107,12 +108,12 @@ class AdjustParams {
       photoFilter: photoFilter ?? this.photoFilter,
 
       // 高级调色
-      grade: grade ?? this.grade,
       mixer: mixer ?? this.mixer,
       lut: lut ?? this.lut,
       gradientMap: gradientMap ?? this.gradientMap,
 
       // 特殊
+      desaturate: desaturate ?? this.desaturate,
       invert: invert ?? this.invert,
       threshold: threshold ?? this.threshold,
       posterize: posterize ?? this.posterize,

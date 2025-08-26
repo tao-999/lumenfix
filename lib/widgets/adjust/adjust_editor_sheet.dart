@@ -3,7 +3,9 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:lumenfix/widgets/adjust/panel/blackwhite_panel.dart';
+import 'package:lumenfix/widgets/adjust/panel/channel_mixer_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/color_balance_panel.dart';
+import 'package:lumenfix/widgets/adjust/panel/photo_filter_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/selective_color_panel.dart';
 
 // 面板
@@ -129,6 +131,8 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
                   colorBalance: _params.colorBalance,
                   selectiveColor: _params.selectiveColor,
                   bw: _params.bw,
+                  photoFilter: _params.photoFilter,
+                  mixer: _params.mixer,
                 ),
               ),
 
@@ -261,6 +265,18 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
           value: _params.bw,
           onChanged: (BlackWhiteParams v) =>
               setState(() => _params = _params.copyWith(bw: v)),
+          onCommit: () => setState(() {}),
+        );
+      case AdjustAction.photoFilter:
+        return PhotoFilterPanel(
+          value: _params.photoFilter,
+          onChanged: (v) => setState(() => _params = _params.copyWith(photoFilter: v)),
+          onCommit: () => setState(() {}),
+        );
+      case AdjustAction.channelMixer:
+        return ChannelMixerPanel(
+          value: _params.mixer,
+          onChanged: (v) => setState(() => _params = _params.copyWith(mixer: v)),
           onCommit: () => setState(() {}),
         );
       default:

@@ -1,3 +1,4 @@
+// lib/widgets/adjust/common.dart
 import 'package:flutter/material.dart';
 
 /// 通用滚动容器：塞一堆 section/slider 的列表（更紧凑）
@@ -50,20 +51,21 @@ class CommonSlider extends StatefulWidget {
     this.neutral,
     this.decimals = 0,
     this.enabled = true,
-    this.dense = true,           // 新：紧凑模式（默认开）
-    this.showReset = true,       // 新：控制是否显示“复位”
-    // 注：不再画中立竖线（你嫌碍眼），如需恢复可加个 showNeutralTick 参数
+    this.dense = true,           // 紧凑模式（默认开）
+    this.showReset = true,       // 是否显示“复位”
+    this.suffixBuilder,          // ✅ 新增：自定义数值显示（如 "80%"）
   });
 
   final String label;
   final double value;
   final double min;
   final double max;
-  final double? neutral;    // 中立/默认值（可为空，仅用于“复位”）
-  final int decimals;       // 展示小数位
+  final double? neutral;                 // 中立/默认值（用于“复位”）
+  final int decimals;                    // 展示小数位
   final bool enabled;
   final bool dense;
   final bool showReset;
+  final String Function(double v)? suffixBuilder; // ✅ 可选显示格式化
   final ValueChanged<double> onChanged;
   final VoidCallback onCommit;
 
@@ -107,6 +109,9 @@ class _CommonSliderState extends State<CommonSlider> {
       fontWeight: FontWeight.w600,
     );
 
+    // ✅ 用 suffixBuilder 自定义显示（比如 80%），否则用默认格式
+    final valueText = widget.suffixBuilder?.call(_v) ?? _fmt(_v);
+
     return Opacity(
       opacity: dis ? 0.5 : 1,
       child: Padding(
@@ -119,7 +124,7 @@ class _CommonSliderState extends State<CommonSlider> {
               children: [
                 Expanded(child: Text(widget.label, style: labelStyle)),
                 const SizedBox(width: 8),
-                Text(_fmt(_v), style: valueStyle),
+                Text(valueText, style: valueStyle), // ✅
                 if (widget.neutral != null && widget.showReset) ...[
                   const SizedBox(width: 6),
                   TextButton(

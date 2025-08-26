@@ -1,3 +1,4 @@
+// lib/widgets/adjust/panel/black_white_panel.dart
 import 'package:flutter/material.dart';
 import '../common.dart';
 import '../params/black_white_params.dart';
@@ -22,48 +23,57 @@ class BlackWhitePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // —— 顶部：启用开关 —— //
+          // —— 顶部：只有一个勾选框：着色 —— //
           Row(
             children: [
               Checkbox(
-                value: value.enabled,
-                onChanged: (on) => onChanged(value.copyWith(enabled: on ?? false)),
-              ),
-              const SizedBox(width: 6),
-              const Text('启用黑白', style: TextStyle(color: Colors.white)),
-              const Spacer(),
-              // 着色
-              Checkbox(
                 value: value.tintEnable,
-                onChanged: (on) => onChanged(value.copyWith(
-                  enabled: true, // 勾选着色时顺便启用黑白
-                  tintEnable: on ?? false,
-                )),
+                onChanged: (on) {
+                  final enableTint = on ?? false;
+                  onChanged(
+                    value.copyWith(
+                      tintEnable: enableTint,
+                      // 关键：关掉“着色”时，同步关掉黑白效果；勾上则启用
+                      enabled: enableTint ? true : false,
+                    ),
+                  );
+                  onCommit();
+                },
               ),
-              GestureDetector(
-                onTap: value.tintEnable ? () async {
-                  final picked = await showBwTintColorPicker(context, value.tintColor);
+              const Text('着色', style: TextStyle(color: Colors.white)),
+              const SizedBox(width: 8),
+              // 颜色块（只有在勾选着色时可点击）
+              InkWell(
+                onTap: value.tintEnable
+                    ? () async {
+                  final picked =
+                  await showBwTintColorPicker(context, value.tintColor);
                   if (picked != null) {
-                    onChanged(value.copyWith(enabled: true, tintColor: picked));
+                    onChanged(value.copyWith(
+                      enabled: true,
+                      tintColor: picked,
+                    ));
                     onCommit();
                   }
-                } : null,
+                }
+                    : null,
+                borderRadius: BorderRadius.circular(4),
                 child: Container(
-                  width: 22, height: 16,
+                  width: 22,
+                  height: 16,
                   decoration: BoxDecoration(
                     color: value.tintEnable ? value.tintColor : Colors.white24,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: Colors.white38),
                   ),
-                  margin: const EdgeInsets.only(right: 6),
                 ),
               ),
-              const Text('着色', style: TextStyle(color: Colors.white)),
+              const Spacer(),
             ],
           ),
           const SizedBox(height: 8),
 
-          // —— 六色权重 —— //
+          // —— 六色权重（移动即自动启用黑白） —— //
           _bwSlider('红色',   value.reds,     (v) => onChanged(value.copyWith(enabled: true, reds: v))),
           _bwSlider('黄色',   value.yellows,  (v) => onChanged(value.copyWith(enabled: true, yellows: v))),
           _bwSlider('绿色',   value.greens,   (v) => onChanged(value.copyWith(enabled: true, greens: v))),
@@ -84,46 +94,4 @@ class BlackWhitePanel extends StatelessWidget {
       onCommit: onCommit,
     );
   }
-}
-
-/// —— 简易调色板对话框 ——
-/// （无第三方库，给你一组常用色可点选）
-Future<Color?> _pickColor(BuildContext context, Color init) async {
-  final List<Color> colors = [
-    const Color(0xFF2399CF), const Color(0xFF4CAF50), const Color(0xFFFFC107),
-    const Color(0xFFE91E63), const Color(0xFF3F51B5), const Color(0xFFFF5722),
-    const Color(0xFF795548), const Color(0xFF9E9E9E),
-  ];
-  Color current = init;
-  return showDialog<Color>(
-    context: context,
-    builder: (_) => AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
-      title: const Text('选择着色颜色', style: TextStyle(color: Colors.white)),
-      content: SizedBox(
-        width: 300,
-        child: Wrap(
-          spacing: 10, runSpacing: 10,
-          children: colors.map((c) {
-            final sel = c.value == current.value;
-            return GestureDetector(
-              onTap: () { current = c; },
-              child: Container(
-                width: 32, height: 24,
-                decoration: BoxDecoration(
-                  color: c,
-                  border: Border.all(color: sel ? Colors.white : Colors.white24, width: sel ? 2 : 1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-        TextButton(onPressed: () => Navigator.pop(context, current), child: const Text('确定')),
-      ],
-    ),
-  );
 }

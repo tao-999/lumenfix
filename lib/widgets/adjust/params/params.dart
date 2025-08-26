@@ -9,7 +9,7 @@ export 'color_balance_params.dart';
 export 'selective_color_params.dart';
 export 'black_white_params.dart';
 export 'photo_filter_params.dart';
-export 'grade3way_params.dart';
+export 'desaturate_params.dart';
 export 'channel_mixer_params.dart';
 export 'lut_params.dart';
 export 'gradient_map_params.dart';

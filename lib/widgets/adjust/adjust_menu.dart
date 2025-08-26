@@ -3,105 +3,102 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// —— 功能枚举 —— //
+// 1) enum
 enum AdjustAction {
   brightnessContrast,
-  exposure,
   levels,
   curves,
-  hsl,                 // ✅ 改名：原 hueSaturation -> hsl
-  shadowsHighlights,
+  exposure,
   vibrance,
+  hsl,
   colorBalance,
-  selectiveColor,
   blackWhite,
   photoFilter,
-  grading3Way,
   channelMixer,
   colorLookupLUT,
-  gradientMap,
   invert,
-  threshold,
   posterize,
+  threshold,
+  gradientMap,
+  selectiveColor,
+  shadowsHighlights,
+  desaturate,        // ✅ 新增：去色
   matchColor,
   replaceColor,
 }
 
-/// —— 文案 —— //
+// 2) 文案
 String labelForAdjustAction(AdjustAction a) {
   switch (a) {
     case AdjustAction.brightnessContrast: return '亮度/对比度';
-    case AdjustAction.exposure:           return '曝光度';
     case AdjustAction.levels:             return '色阶';
     case AdjustAction.curves:             return '曲线';
-    case AdjustAction.hsl:                return '色相/饱和度';   // ✅
-    case AdjustAction.shadowsHighlights:  return '阴影/高光';
+    case AdjustAction.exposure:           return '曝光度';
     case AdjustAction.vibrance:           return '自然饱和度';
+    case AdjustAction.hsl:                return '色相/饱和度';
     case AdjustAction.colorBalance:       return '色彩平衡';
-    case AdjustAction.selectiveColor:     return '可选颜色';
     case AdjustAction.blackWhite:         return '黑白';
     case AdjustAction.photoFilter:        return '照片滤镜';
-    case AdjustAction.grading3Way:        return '调色分级';
     case AdjustAction.channelMixer:       return '通道混合器';
     case AdjustAction.colorLookupLUT:     return '颜色查找(LUT)';
-    case AdjustAction.gradientMap:        return '渐变映射';
     case AdjustAction.invert:             return '反相';
-    case AdjustAction.threshold:          return '阈值';
     case AdjustAction.posterize:          return '色调分离';
+    case AdjustAction.threshold:          return '阈值';
+    case AdjustAction.gradientMap:        return '渐变映射';
+    case AdjustAction.selectiveColor:     return '可选颜色';
+    case AdjustAction.shadowsHighlights:  return '阴影/高光';
+    case AdjustAction.desaturate:         return '去色';                 // ✅
     case AdjustAction.matchColor:         return '匹配颜色';
     case AdjustAction.replaceColor:       return '替换颜色';
   }
 }
 
-/// —— 图标 —— //
+// 3) 图标
 IconData iconForAdjustAction(AdjustAction a) {
   switch (a) {
     case AdjustAction.brightnessContrast: return Icons.brightness_6_outlined;
-    case AdjustAction.exposure:           return Icons.exposure_outlined;
     case AdjustAction.levels:             return Icons.stacked_line_chart;
     case AdjustAction.curves:             return Icons.show_chart;
-
-    case AdjustAction.hsl:                return Icons.palette_outlined;     // ✅
-    case AdjustAction.shadowsHighlights:  return Icons.tonality_outlined;
+    case AdjustAction.exposure:           return Icons.exposure_outlined;
     case AdjustAction.vibrance:           return Icons.color_lens_outlined;
-
+    case AdjustAction.hsl:                return Icons.palette_outlined;
     case AdjustAction.colorBalance:       return Icons.colorize_outlined;
-    case AdjustAction.selectiveColor:     return Icons.colorize;
     case AdjustAction.blackWhite:         return Icons.filter_b_and_w;
     case AdjustAction.photoFilter:        return Icons.photo_filter_outlined;
-
-    case AdjustAction.grading3Way:        return Icons.tune;
     case AdjustAction.channelMixer:       return Icons.grid_3x3_outlined;
     case AdjustAction.colorLookupLUT:     return Icons.apps_outlined;
-    case AdjustAction.gradientMap:        return Icons.gradient_outlined;
-
     case AdjustAction.invert:             return Icons.invert_colors;
-    case AdjustAction.threshold:          return Icons.tonality;
     case AdjustAction.posterize:          return Icons.filter_hdr_outlined;
+    case AdjustAction.threshold:          return Icons.tonality;
+    case AdjustAction.gradientMap:        return Icons.gradient_outlined;
+    case AdjustAction.selectiveColor:     return Icons.colorize;
+    case AdjustAction.shadowsHighlights:  return Icons.tonality_outlined;
+    case AdjustAction.desaturate:         return Icons.water_drop_outlined;  // ✅ 任意合适图标
     case AdjustAction.matchColor:         return Icons.compare_outlined;
     case AdjustAction.replaceColor:       return Icons.swap_horiz_outlined;
   }
 }
 
-/// —— 扁平顺序（横向排布用） —— //
+// 4) 菜单顺序（按你截图）
 const List<AdjustAction> kAllAdjustActions = [
   AdjustAction.brightnessContrast,
-  AdjustAction.exposure,
   AdjustAction.levels,
   AdjustAction.curves,
-  AdjustAction.hsl,                // ✅ 放在曲线之后
-  AdjustAction.shadowsHighlights,
+  AdjustAction.exposure,
   AdjustAction.vibrance,
+  AdjustAction.hsl,
   AdjustAction.colorBalance,
-  AdjustAction.selectiveColor,
   AdjustAction.blackWhite,
   AdjustAction.photoFilter,
-  AdjustAction.grading3Way,
   AdjustAction.channelMixer,
   AdjustAction.colorLookupLUT,
-  AdjustAction.gradientMap,
   AdjustAction.invert,
-  AdjustAction.threshold,
   AdjustAction.posterize,
+  AdjustAction.threshold,
+  AdjustAction.gradientMap,
+  AdjustAction.selectiveColor,
+  AdjustAction.shadowsHighlights,
+  AdjustAction.desaturate,     // ✅
   AdjustAction.matchColor,
   AdjustAction.replaceColor,
 ];
