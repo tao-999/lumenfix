@@ -1,0 +1,1 @@
+class InvertParams { const InvertParams(); }
