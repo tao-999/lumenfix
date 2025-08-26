@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 // —— 参数类型：从 params/ 统一导出 —— //
+import 'engine/desaturate_engine.dart';
 import 'engine/gradient_map_engine.dart';
 import 'engine/posterize_engine.dart';
 import 'engine/threshold_engine.dart';
@@ -49,6 +50,7 @@ class AdjustPreview extends StatefulWidget {
     required this.posterize,
     required this.threshold,
     required this.gradientMap,
+    required this.desaturate,
   });
 
   final ui.Image orig;
@@ -77,6 +79,7 @@ class AdjustPreview extends StatefulWidget {
   final PosterizeParams posterize;
   final ThresholdParams threshold;
   final GradientMapParams gradientMap;
+  final DesaturateParams desaturate;
 
   @override
   State<AdjustPreview> createState() => _AdjustPreviewState();
@@ -151,6 +154,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       widget.posterize,
       widget.threshold,
       widget.gradientMap,
+      widget.desaturate,
     );
 
     if (!mounted) return;
@@ -369,6 +373,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       PosterizeParams posterize,
       ThresholdParams threshold,
       GradientMapParams gradientMap,
+      DesaturateParams desat,
       ) async {
     final w = src.width, h = src.height;
     final bd = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -446,6 +451,11 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     // 13) 渐变映射
     if (!widget.gradientMap.isNeutral) {
       GradientMapEngine.applyToRgbaInPlace(bytes, w, h, widget.gradientMap);
+    }
+
+    // 14) 去色
+    if (desat.enabled) {
+      DesaturateEngine.applyToRgbaInPlace(bytes, w, h);
     }
 
     final c = Completer<ui.Image>();
