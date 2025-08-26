@@ -7,6 +7,7 @@ import 'package:lumenfix/widgets/adjust/panel/channel_mixer_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/color_balance_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/invert_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/photo_filter_panel.dart';
+import 'package:lumenfix/widgets/adjust/panel/posterize_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/selective_color_panel.dart';
 
 // 面板
@@ -135,6 +136,7 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
                   photoFilter: _params.photoFilter,
                   mixer: _params.mixer,
                   invert: _params.invert,
+                  posterize: _params.posterize,
                 ),
               ),
 
@@ -287,7 +289,13 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
           onChanged: (v) => setState(() => _params = _params.copyWith(invert: v)),
           onCommit: () => setState(() {}),
         );
-
+      case AdjustAction.posterize:
+        return PosterizePanel(
+          value: _params.posterize,
+          onChanged: (PosterizeParams v) =>
+              setState(() => _params = _params.copyWith(posterize: v)),
+          onCommit: () => setState(() {}),
+        );
       default:
         return _PlaceholderPanel(labelForAdjustAction(_current));
     }

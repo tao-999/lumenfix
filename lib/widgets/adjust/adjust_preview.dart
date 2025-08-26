@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 // —— 参数类型：从 params/ 统一导出 —— //
+import 'engine/posterize_engine.dart';
 import 'params/params.dart';
 
 // —— 引擎 —— //
@@ -43,6 +44,7 @@ class AdjustPreview extends StatefulWidget {
 
     // —— 特殊 —— //
     required this.invert,
+    required this.posterize,
   });
 
   final ui.Image orig;
@@ -68,6 +70,7 @@ class AdjustPreview extends StatefulWidget {
 
   // —— 特殊 —— //
   final InvertParams invert;
+  final PosterizeParams posterize;
 
   @override
   State<AdjustPreview> createState() => _AdjustPreviewState();
@@ -139,6 +142,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       widget.sh,
       widget.vibrance,
       widget.invert,
+      widget.posterize,
     );
 
     if (!mounted) return;
@@ -353,7 +357,8 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       PhotoFilterParams pf,
       ShadowsHighlightsParams sh,
       VibranceParams vibrance,
-      InvertParams invert,            // ✅ 不漏逻辑：增加反相
+      InvertParams invert,
+      PosterizeParams posterize,
       ) async {
     final w = src.width, h = src.height;
     final bd = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -416,6 +421,11 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     // 10) 反相（最后一步，确保对最终画面）
     if (!invert.isNeutral) {
       InvertEngine.applyToRgbaInPlace(bytes, w, h, invert);
+    }
+
+    // 11) 色调分离（在早期做，后续仍可再做 HSL、CB 等）
+    if (posterize.levels >= 2 && posterize.levels <= 255) {
+      PosterizeEngine.applyToRgbaInPlace(bytes, w, h, posterize);
     }
 
     final c = Completer<ui.Image>();
