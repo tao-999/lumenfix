@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:lumenfix/widgets/adjust/panel/blackwhite_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/channel_mixer_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/color_balance_panel.dart';
+import 'package:lumenfix/widgets/adjust/panel/gradient_map_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/invert_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/photo_filter_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/posterize_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/selective_color_panel.dart';
+import 'package:lumenfix/widgets/adjust/panel/threshold_panel.dart';
 
 // 面板
 import 'package:lumenfix/widgets/adjust/panel/vibrance_panel.dart';
@@ -137,6 +139,8 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
                   mixer: _params.mixer,
                   invert: _params.invert,
                   posterize: _params.posterize,
+                  threshold: _params.threshold,
+                  gradientMap: _params.gradientMap,
                 ),
               ),
 
@@ -294,6 +298,19 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
           value: _params.posterize,
           onChanged: (PosterizeParams v) =>
               setState(() => _params = _params.copyWith(posterize: v)),
+          onCommit: () => setState(() {}),
+        );
+      case AdjustAction.threshold:
+        return ThresholdPanel(
+          value: _params.threshold,
+          onChanged: (ThresholdParams v) =>
+              setState(() => _params = _params.copyWith(threshold: v)),
+          onCommit: () => setState(() {}),
+        );
+      case AdjustAction.gradientMap:
+        return GradientMapPanel(
+          value: _params.gradientMap,
+          onChanged: (v) => setState(() => _params = _params.copyWith(gradientMap: v)),
           onCommit: () => setState(() {}),
         );
       default:

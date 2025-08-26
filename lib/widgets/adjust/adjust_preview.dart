@@ -6,7 +6,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 // —— 参数类型：从 params/ 统一导出 —— //
+import 'engine/gradient_map_engine.dart';
 import 'engine/posterize_engine.dart';
+import 'engine/threshold_engine.dart';
 import 'params/params.dart';
 
 // —— 引擎 —— //
@@ -45,6 +47,8 @@ class AdjustPreview extends StatefulWidget {
     // —— 特殊 —— //
     required this.invert,
     required this.posterize,
+    required this.threshold,
+    required this.gradientMap,
   });
 
   final ui.Image orig;
@@ -71,6 +75,8 @@ class AdjustPreview extends StatefulWidget {
   // —— 特殊 —— //
   final InvertParams invert;
   final PosterizeParams posterize;
+  final ThresholdParams threshold;
+  final GradientMapParams gradientMap;
 
   @override
   State<AdjustPreview> createState() => _AdjustPreviewState();
@@ -143,6 +149,8 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       widget.vibrance,
       widget.invert,
       widget.posterize,
+      widget.threshold,
+      widget.gradientMap,
     );
 
     if (!mounted) return;
@@ -359,6 +367,8 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       VibranceParams vibrance,
       InvertParams invert,
       PosterizeParams posterize,
+      ThresholdParams threshold,
+      GradientMapParams gradientMap,
       ) async {
     final w = src.width, h = src.height;
     final bd = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -426,6 +436,16 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     // 11) 色调分离（在早期做，后续仍可再做 HSL、CB 等）
     if (posterize.levels >= 2 && posterize.levels <= 255) {
       PosterizeEngine.applyToRgbaInPlace(bytes, w, h, posterize);
+    }
+
+    // 12) 阈值
+    if (threshold.enabled) {
+      ThresholdEngine.applyToRgbaInPlace(bytes, w, h, threshold);
+    }
+
+    // 13) 渐变映射
+    if (!widget.gradientMap.isNeutral) {
+      GradientMapEngine.applyToRgbaInPlace(bytes, w, h, widget.gradientMap);
     }
 
     final c = Completer<ui.Image>();
