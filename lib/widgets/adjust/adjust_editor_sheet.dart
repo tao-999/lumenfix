@@ -2,7 +2,9 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:lumenfix/widgets/adjust/panel/blackwhite_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/color_balance_panel.dart';
+import 'package:lumenfix/widgets/adjust/panel/selective_color_panel.dart';
 
 // 面板
 import 'package:lumenfix/widgets/adjust/panel/vibrance_panel.dart';
@@ -125,6 +127,8 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
                   sh: _params.sh,
                   vibrance: _params.vibrance,
                   colorBalance: _params.colorBalance,
+                  selectiveColor: _params.selectiveColor,
+                  bw: _params.bw,
                 ),
               ),
 
@@ -243,6 +247,20 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
         return ColorBalancePanel(
           value: _params.colorBalance,
           onChanged: (v) => setState(() => _params = _params.copyWith(colorBalance: v)),
+          onCommit: () => setState(() {}),
+        );
+      case AdjustAction.selectiveColor:
+        return SelectiveColorPanel(
+          value: _params.selectiveColor,
+          onChanged: (SelectiveColorParams v) =>
+              setState(() => _params = _params.copyWith(selectiveColor: v)),
+          onCommit: () => setState(() {}),
+        );
+      case AdjustAction.blackWhite:
+        return BlackWhitePanel(
+          value: _params.bw,
+          onChanged: (BlackWhiteParams v) =>
+              setState(() => _params = _params.copyWith(bw: v)),
           onCommit: () => setState(() {}),
         );
       default:

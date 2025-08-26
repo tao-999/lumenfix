@@ -11,6 +11,8 @@ import 'params/params.dart';
 // —— 引擎 —— //
 import 'engine/hsl_engine.dart';
 import 'engine/color_balance.dart';
+import 'engine/selective_color.dart';
+import 'engine/black_white_engine.dart';
 import 'engine/shadows_highlights.dart';
 import 'engine/vibrance.dart';
 
@@ -29,6 +31,8 @@ class AdjustPreview extends StatefulWidget {
     // 颜色
     required this.hsl,
     required this.colorBalance,
+    required this.selectiveColor,
+    required this.bw,
     required this.vibrance,
 
     // 阴影/高光
@@ -47,6 +51,8 @@ class AdjustPreview extends StatefulWidget {
   // —— 颜色 —— //
   final HslParams hsl;
   final ColorBalanceParams colorBalance;
+  final SelectiveColorParams selectiveColor;
+  final BlackWhiteParams bw;
   final VibranceParams vibrance;
 
   // —— 阴影/高光 —— //
@@ -99,12 +105,14 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       curves: widget.curves,
     );
 
-    // —— 合成顺序：LUT → HSL → ColorBalance → SH → Vibrance —— //
+    // —— 合成顺序：LUT → HSL → ColorBalance → SelectiveColor → BlackWhite → SH → Vibrance —— //
     final cooked = await _applyPipeline(
       frame,
       lut,
       widget.hsl,
       widget.colorBalance,
+      widget.selectiveColor,
+      widget.bw,
       widget.sh,
       widget.vibrance,
     );
@@ -174,7 +182,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
   }
 
   /* =========================
-   *    LUT + HSL + CB + SH + Vibrance 管线
+   *   LUT + HSL + CB + SC + BW + SH + Vibrance 管线
    * ========================= */
 
   _RgbLut _buildCombinedLuts({
@@ -315,6 +323,8 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       _RgbLut lut,
       HslParams hsl,
       ColorBalanceParams cb,
+      SelectiveColorParams sc,
+      BlackWhiteParams bw,
       ShadowsHighlightsParams sh,
       VibranceParams vibrance,
       ) async {
@@ -337,6 +347,16 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     // 3) 色彩平衡
     if (!cb.isNeutral) {
       ColorBalanceEngine.applyToRgbaInPlace(bytes, w, h, cb);
+    }
+
+    // 3.5) 可选颜色
+    if (!sc.isNeutral) {
+      SelectiveColorEngine.applyToRgbaInPlace(bytes, w, h, sc);
+    }
+
+    // 3.8) 黑白
+    if (bw.enabled) {
+      BlackWhiteEngine.applyToRgbaInPlace(bytes, w, h, bw);
     }
 
     // 4) 阴影/高光
