@@ -20,22 +20,40 @@ class ShadowsHighlightsPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // ✅ 顶部启用开关（点文字也能切）
+          Row(
+            children: [
+              Checkbox(
+                value: value.enabled,
+                onChanged: (on) => onChanged(value.copyWith(enabled: on ?? false)),
+              ),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => onChanged(value.copyWith(enabled: !value.enabled)),
+                child: const Text('启用阴影/高光', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+
           const CommonSection('阴影'),
           CommonSlider(
             label: '数量',
             value: value.shAmount, min: -100, max: 100, neutral: 0,
+            enabled: value.enabled,                                  // ✅
             onChanged: (v) => onChanged(value.copyWith(shAmount: v)),
             onCommit: () {},
           ),
           CommonSlider(
             label: 'Tone',
             value: value.shTone, min: 0, max: 100, neutral: 25,
+            enabled: value.enabled,                                  // ✅
             onChanged: (v) => onChanged(value.copyWith(shTone: v)),
             onCommit: () {},
           ),
           CommonSlider(
             label: '半径（px）',
             value: value.shRadius, min: 0, max: 200, neutral: 12, decimals: 0,
+            enabled: value.enabled,                                  // ✅
             onChanged: (v) => onChanged(value.copyWith(shRadius: v)),
             onCommit: () {},
           ),
@@ -45,18 +63,21 @@ class ShadowsHighlightsPanel extends StatelessWidget {
           CommonSlider(
             label: '数量',
             value: value.hiAmount, min: -100, max: 100, neutral: 0,
+            enabled: value.enabled,                                  // ✅
             onChanged: (v) => onChanged(value.copyWith(hiAmount: v)),
             onCommit: () {},
           ),
           CommonSlider(
             label: 'Tone',
             value: value.hiTone, min: 0, max: 100, neutral: 25,
+            enabled: value.enabled,                                  // ✅
             onChanged: (v) => onChanged(value.copyWith(hiTone: v)),
             onCommit: () {},
           ),
           CommonSlider(
             label: '半径（px）',
             value: value.hiRadius, min: 0, max: 200, neutral: 12, decimals: 0,
+            enabled: value.enabled,                                  // ✅
             onChanged: (v) => onChanged(value.copyWith(hiRadius: v)),
             onCommit: () {},
           ),
@@ -66,6 +87,7 @@ class ShadowsHighlightsPanel extends StatelessWidget {
           CommonSlider(
             label: '颜色',
             value: value.color, min: -100, max: 100, neutral: 0,
+            enabled: value.enabled,                                  // ✅
             onChanged: (v) => onChanged(value.copyWith(color: v)),
             onCommit: () {},
           ),

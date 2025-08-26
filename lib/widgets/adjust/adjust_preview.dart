@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'engine/desaturate_engine.dart';
 import 'engine/gradient_map_engine.dart';
 import 'engine/posterize_engine.dart';
+import 'engine/replace_color_engine.dart';
 import 'engine/threshold_engine.dart';
 import 'params/params.dart';
 
@@ -51,6 +52,7 @@ class AdjustPreview extends StatefulWidget {
     required this.threshold,
     required this.gradientMap,
     required this.desaturate,
+    required this.replaceColor,
   });
 
   final ui.Image orig;
@@ -80,6 +82,7 @@ class AdjustPreview extends StatefulWidget {
   final ThresholdParams threshold;
   final GradientMapParams gradientMap;
   final DesaturateParams desaturate;
+  final ReplaceColorParams replaceColor;
 
   @override
   State<AdjustPreview> createState() => _AdjustPreviewState();
@@ -90,12 +93,19 @@ class _AdjustPreviewState extends State<AdjustPreview> {
   bool _rebuilding = false;
   bool _dirty = false;
 
-  double _dpr = 1.0;
   static const int _kMaxPreviewPixels = 3 * 1024 * 1024;
 
   @override
   void initState() {
     super.initState();
+    // ⚠️ 首帧不要在这里依赖 MediaQuery（会在 _rebuild → _pickPreviewSizePx → _currentDpr 用到）
+    // _scheduleRebuild();  // ❌ 移除
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // ✅ 首帧 & 依赖变更（MediaQuery/Theme等）安全触发
     _scheduleRebuild();
   }
 
@@ -103,6 +113,20 @@ class _AdjustPreviewState extends State<AdjustPreview> {
   void didUpdateWidget(covariant AdjustPreview old) {
     super.didUpdateWidget(old);
     _scheduleRebuild();
+  }
+
+  // ✅ 实时获取 DPR（在 didChangeDependencies/build 时机安全）
+  double _currentDpr() {
+    final mq = MediaQuery.maybeOf(context);
+    if (mq != null) return mq.devicePixelRatio;
+    try {
+      return View.of(context).devicePixelRatio; // Flutter 3.10+
+    } catch (_) {
+      final implicit = WidgetsBinding.instance.platformDispatcher.implicitView;
+      if (implicit != null) return implicit.devicePixelRatio;
+      final views = WidgetsBinding.instance.platformDispatcher.views;
+      return views.isNotEmpty ? views.first.devicePixelRatio : 1.0;
+    }
   }
 
   void _scheduleRebuild() {
@@ -128,17 +152,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       curves: widget.curves,
     );
 
-    // —— 合成顺序（对齐你现在的诉求）——
-    // 1) LUT
-    // 2) HSL
-    // 3) 色彩平衡
-    // 4) 可选颜色
-    // 5) 通道混合器
-    // 6) 黑白
-    // 7) 照片滤镜
-    // 8) 阴影/高光
-    // 9) 自然饱和度/饱和度
-    // 10) 反相（最后一步）
+    // —— 合成顺序 —— //
     final cooked = await _applyPipeline(
       frame,
       lut,
@@ -155,6 +169,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       widget.threshold,
       widget.gradientMap,
       widget.desaturate,
+      widget.replaceColor,
     );
 
     if (!mounted) return;
@@ -165,10 +180,13 @@ class _AdjustPreviewState extends State<AdjustPreview> {
   }
 
   Size _pickPreviewSizePx(Size fitDp) {
-    final targetW = (fitDp.width * _dpr).ceil();
-    final targetH = (fitDp.height * _dpr).ceil();
+    final dpr = _currentDpr();
+    final targetW = (fitDp.width * dpr).ceil();
+    final targetH = (fitDp.height * dpr).ceil();
+
     int w = targetW.clamp(1, widget.orig.width);
     int h = targetH.clamp(1, widget.orig.height);
+
     final area = w * h;
     if (area > _kMaxPreviewPixels) {
       final s = math.sqrt(_kMaxPreviewPixels / area);
@@ -193,7 +211,6 @@ class _AdjustPreviewState extends State<AdjustPreview> {
 
   @override
   Widget build(BuildContext context) {
-    _dpr = MediaQuery.of(context).devicePixelRatio;
     return RepaintBoundary(
       child: CustomPaint(
         painter: _PreviewPainter(
@@ -374,6 +391,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       ThresholdParams threshold,
       GradientMapParams gradientMap,
       DesaturateParams desat,
+      ReplaceColorParams repl,
       ) async {
     final w = src.width, h = src.height;
     final bd = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -412,19 +430,12 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     }
 
     // 7) 照片滤镜
-    if (pf.density > 0) {
+    if (!pf.isNeutral) {
       PhotoFilterEngine.applyToRgbaInPlace(bytes, w, h, pf);
     }
 
     // 8) 阴影/高光
-    final needSH = sh.shAmount != 0 ||
-        sh.hiAmount != 0 ||
-        sh.color != 0 ||
-        sh.shTone != 25 ||
-        sh.hiTone != 25 ||
-        sh.shRadius != 12 ||
-        sh.hiRadius != 12;
-    if (needSH) {
+    if (!sh.isNeutral) {
       ShadowsHighlightsEngine.applyToRgbaInPlace(bytes, w, h, sh);
     }
 
@@ -439,7 +450,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     }
 
     // 11) 色调分离（在早期做，后续仍可再做 HSL、CB 等）
-    if (posterize.levels >= 2 && posterize.levels <= 255) {
+    if (!posterize.isNeutral) {
       PosterizeEngine.applyToRgbaInPlace(bytes, w, h, posterize);
     }
 
@@ -449,13 +460,18 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     }
 
     // 13) 渐变映射
-    if (!widget.gradientMap.isNeutral) {
-      GradientMapEngine.applyToRgbaInPlace(bytes, w, h, widget.gradientMap);
+    if (!gradientMap.isNeutral) { // ✅ 用参数，不用 widget.gradientMap
+      GradientMapEngine.applyToRgbaInPlace(bytes, w, h, gradientMap);
     }
 
     // 14) 去色
     if (desat.enabled) {
       DesaturateEngine.applyToRgbaInPlace(bytes, w, h);
+    }
+
+    // 15) 替换颜色
+    if (!repl.isNeutral) {
+      ReplaceColorEngine.applyToRgbaInPlace(bytes, w, h, repl);
     }
 
     final c = Completer<ui.Image>();

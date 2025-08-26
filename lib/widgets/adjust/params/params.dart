@@ -16,5 +16,4 @@ export 'gradient_map_params.dart';
 export 'invert_params.dart';
 export 'threshold_params.dart';
 export 'posterize_params.dart';
-export 'match_color_params.dart';
 export 'replace_color_params.dart';

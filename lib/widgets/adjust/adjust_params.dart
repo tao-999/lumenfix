@@ -27,7 +27,6 @@ class AdjustParams {
   final P.InvertParams invert;
   final P.ThresholdParams threshold;
   final P.PosterizeParams posterize;
-  final P.MatchColorParams matchColor;
   final P.ReplaceColorParams replaceColor;
 
   const AdjustParams({
@@ -55,7 +54,6 @@ class AdjustParams {
     this.invert = const P.InvertParams(),
     this.threshold = const P.ThresholdParams(),
     this.posterize = const P.PosterizeParams(),
-    this.matchColor = const P.MatchColorParams(),
     this.replaceColor = const P.ReplaceColorParams(),
   });
 
@@ -84,7 +82,6 @@ class AdjustParams {
     P.InvertParams? invert,
     P.ThresholdParams? threshold,
     P.PosterizeParams? posterize,
-    P.MatchColorParams? matchColor,
     P.ReplaceColorParams? replaceColor,
   }) {
     return AdjustParams(
@@ -112,7 +109,6 @@ class AdjustParams {
       invert: invert ?? this.invert,
       threshold: threshold ?? this.threshold,
       posterize: posterize ?? this.posterize,
-      matchColor: matchColor ?? this.matchColor,
       replaceColor: replaceColor ?? this.replaceColor,
     );
   }

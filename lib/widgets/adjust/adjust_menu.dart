@@ -21,7 +21,6 @@ enum AdjustAction {
   selectiveColor,
   shadowsHighlights,
   desaturate,        // 去色
-  matchColor,
   replaceColor,
 }
 
@@ -45,7 +44,6 @@ String labelForAdjustAction(AdjustAction a) {
     case AdjustAction.selectiveColor:     return '可选颜色';
     case AdjustAction.shadowsHighlights:  return '阴影/高光';
     case AdjustAction.desaturate:         return '去色';
-    case AdjustAction.matchColor:         return '匹配颜色';
     case AdjustAction.replaceColor:       return '替换颜色';
   }
 }
@@ -70,7 +68,6 @@ IconData iconForAdjustAction(AdjustAction a) {
     case AdjustAction.selectiveColor:     return Icons.colorize;
     case AdjustAction.shadowsHighlights:  return Icons.tonality_outlined;
     case AdjustAction.desaturate:         return Icons.water_drop_outlined;
-    case AdjustAction.matchColor:         return Icons.compare_outlined;
     case AdjustAction.replaceColor:       return Icons.swap_horiz_outlined;
   }
 }
@@ -94,7 +91,6 @@ const List<AdjustAction> kAllAdjustActions = [
   AdjustAction.selectiveColor,
   AdjustAction.shadowsHighlights,
   AdjustAction.desaturate,
-  AdjustAction.matchColor,
   AdjustAction.replaceColor,
 ];
 
