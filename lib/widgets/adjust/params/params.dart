@@ -17,3 +17,4 @@ export 'invert_params.dart';
 export 'threshold_params.dart';
 export 'posterize_params.dart';
 export 'replace_color_params.dart';
+export 'denoise_params.dart';

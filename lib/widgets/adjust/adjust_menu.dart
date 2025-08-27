@@ -22,6 +22,7 @@ enum AdjustAction {
   shadowsHighlights,
   desaturate,        // 去色
   replaceColor,
+  denoise,
 }
 
 /// —— 文案 —— //
@@ -34,6 +35,7 @@ String labelForAdjustAction(AdjustAction a) {
     case AdjustAction.vibrance:           return '自然饱和度';
     case AdjustAction.hsl:                return '色相/饱和度';
     case AdjustAction.colorBalance:       return '色彩平衡';
+    case AdjustAction.denoise:            return '图片降噪';
     case AdjustAction.blackWhite:         return '黑白';
     case AdjustAction.photoFilter:        return '照片滤镜';
     case AdjustAction.channelMixer:       return '通道混合器';
@@ -58,6 +60,7 @@ IconData iconForAdjustAction(AdjustAction a) {
     case AdjustAction.vibrance:           return Icons.color_lens_outlined;
     case AdjustAction.hsl:                return Icons.palette_outlined;
     case AdjustAction.colorBalance:       return Icons.colorize_outlined;
+    case AdjustAction.denoise:            return Icons.noise_control_off;
     case AdjustAction.blackWhite:         return Icons.filter_b_and_w;
     case AdjustAction.photoFilter:        return Icons.photo_filter_outlined;
     case AdjustAction.channelMixer:       return Icons.grid_3x3_outlined;
@@ -81,6 +84,7 @@ const List<AdjustAction> kAllAdjustActions = [
   AdjustAction.vibrance,
   AdjustAction.hsl,
   AdjustAction.colorBalance,
+  AdjustAction.denoise,
   AdjustAction.blackWhite,
   AdjustAction.photoFilter,
   AdjustAction.channelMixer,

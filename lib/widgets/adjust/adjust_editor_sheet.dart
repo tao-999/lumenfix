@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:lumenfix/widgets/adjust/panel/blackwhite_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/channel_mixer_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/color_balance_panel.dart';
+import 'package:lumenfix/widgets/adjust/panel/denoise_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/desaturate_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/gradient_map_panel.dart';
 import 'package:lumenfix/widgets/adjust/panel/invert_panel.dart';
@@ -171,6 +172,7 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
                   gradientMap: _params.gradientMap,
                   desaturate: _params.desaturate,
                   replaceColor: _params.replaceColor,
+                  denoise: _params.denoise,
                 ),
               ),
 
@@ -360,6 +362,12 @@ class _AdjustEditorSheetState extends State<AdjustEditorSheet> {
           value: _params.replaceColor,
           onChanged: (v) =>
               setState(() => _params = _params.copyWith(replaceColor: v)),
+          onCommit: () => setState(() {}),
+        );
+      case AdjustAction.denoise:
+        return DenoisePanel(
+          value: _params.denoise,
+          onChanged: (v) => setState(() => _params = _params.copyWith(denoise: v)),
           onCommit: () => setState(() {}),
         );
 

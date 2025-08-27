@@ -6,14 +6,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 // —— 参数类型：从 params/ 统一导出 —— //
-import 'engine/desaturate_engine.dart';
-import 'engine/gradient_map_engine.dart';
-import 'engine/posterize_engine.dart';
-import 'engine/replace_color_engine.dart';
-import 'engine/threshold_engine.dart';
 import 'params/params.dart';
 
 // —— 引擎 —— //
+import 'engine/denoise_engine.dart';          // 🆕 降噪引擎
 import 'engine/hsl_engine.dart';
 import 'engine/color_balance.dart';
 import 'engine/selective_color.dart';
@@ -23,6 +19,11 @@ import 'engine/photo_filter_engine.dart';
 import 'engine/shadows_highlights.dart';
 import 'engine/vibrance.dart';
 import 'engine/invert_engine.dart';
+import 'engine/desaturate_engine.dart';
+import 'engine/gradient_map_engine.dart';
+import 'engine/posterize_engine.dart';
+import 'engine/replace_color_engine.dart';
+import 'engine/threshold_engine.dart';
 
 class AdjustPreview extends StatefulWidget {
   const AdjustPreview({
@@ -45,6 +46,9 @@ class AdjustPreview extends StatefulWidget {
     required this.photoFilter,
     required this.sh,
     required this.vibrance,
+
+    // —— 降噪 —— //
+    required this.denoise,
 
     // —— 特殊 —— //
     required this.invert,
@@ -76,6 +80,9 @@ class AdjustPreview extends StatefulWidget {
   final ShadowsHighlightsParams sh;
   final VibranceParams vibrance;
 
+  // —— 降噪 —— //
+  final DenoiseParams denoise;
+
   // —— 特殊 —— //
   final InvertParams invert;
   final PosterizeParams posterize;
@@ -93,29 +100,68 @@ class _AdjustPreviewState extends State<AdjustPreview> {
   bool _rebuilding = false;
   bool _dirty = false;
 
-  static const int _kMaxPreviewPixels = 3 * 1024 * 1024;
+  // 预览像素预算（1MP 更丝滑；要更清晰可调回 3MP）
+  static const int _kMaxPreviewPixels = 1 * 1024 * 1024;
+
+  // 轻微防抖，避免频繁重建卡顿
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    // ⚠️ 首帧不要在这里依赖 MediaQuery（会在 _rebuild → _pickPreviewSizePx → _currentDpr 用到）
-    // _scheduleRebuild();  // ❌ 移除
+    // 首帧绘制后再做第一次重建，避免与路由/MediaQuery 冲突
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scheduleRebuild();
+    });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // ✅ 首帧 & 依赖变更（MediaQuery/Theme等）安全触发
-    _scheduleRebuild();
+    // 不在这里重建：Dropdown 打开/关闭会触发依赖变化，容易卡
   }
 
   @override
   void didUpdateWidget(covariant AdjustPreview old) {
     super.didUpdateWidget(old);
-    _scheduleRebuild();
+
+    // 仅在参数“真的有变化”时重建；打开下拉等 UI 操作不会触发
+    final same =
+        identical(widget.orig, old.orig) &&
+            widget.fitRect == old.fitRect &&
+            widget.bc == old.bc &&
+            widget.exposure == old.exposure &&
+            widget.levels == old.levels &&
+            widget.curves == old.curves &&
+            widget.hsl == old.hsl &&
+            widget.colorBalance == old.colorBalance &&
+            widget.selectiveColor == old.selectiveColor &&
+            widget.mixer == old.mixer &&
+            widget.bw == old.bw &&
+            widget.photoFilter == old.photoFilter &&
+            widget.sh == old.sh &&
+            widget.vibrance == old.vibrance &&
+            widget.denoise == old.denoise && // 🆕
+            widget.invert == old.invert &&
+            widget.posterize == old.posterize &&
+            widget.threshold == old.threshold &&
+            widget.gradientMap == old.gradientMap &&
+            widget.desaturate == old.desaturate &&
+            widget.replaceColor == old.replaceColor;
+
+    if (!same) {
+      _scheduleRebuild();
+    }
   }
 
-  // ✅ 实时获取 DPR（在 didChangeDependencies/build 时机安全）
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  // 实时获取 DPR（首帧后用 MediaQuery 安全）
   double _currentDpr() {
     final mq = MediaQuery.maybeOf(context);
     if (mq != null) return mq.devicePixelRatio;
@@ -129,12 +175,17 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     }
   }
 
-  void _scheduleRebuild() {
+  void _scheduleRebuild({Duration debounce = const Duration(milliseconds: 60)}) {
     if (_rebuilding) {
       _dirty = true;
       return;
     }
-    _rebuild();
+    _debounce?.cancel();
+    if (debounce == Duration.zero) {
+      _rebuild();
+    } else {
+      _debounce = Timer(debounce, _rebuild);
+    }
   }
 
   Future<void> _rebuild() async {
@@ -156,6 +207,11 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     final cooked = await _applyPipeline(
       frame,
       lut,
+
+      // 前置：降噪在 LUT 之后、HSL 之前
+      widget.denoise,
+
+      // 颜色系
       widget.hsl,
       widget.colorBalance,
       widget.selectiveColor,
@@ -164,6 +220,8 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       widget.photoFilter,
       widget.sh,
       widget.vibrance,
+
+      // 特殊系
       widget.invert,
       widget.posterize,
       widget.threshold,
@@ -239,7 +297,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
   }
 
   /* =========================
-   *   LUT + HSL + CB + SC + MIX + BW + PF + SH + Vibrance + Invert
+   * LUT + Denoise + HSL + CB + SC + MIX + BW + PF + SH + Vibrance + Invert
    * ========================= */
 
   _RgbLut _buildCombinedLuts({
@@ -378,6 +436,11 @@ class _AdjustPreviewState extends State<AdjustPreview> {
   Future<ui.Image> _applyPipeline(
       ui.Image src,
       _RgbLut lut,
+
+      // —— 降噪 —— //
+      DenoiseParams denoise,
+
+      // —— 颜色 —— //
       HslParams hsl,
       ColorBalanceParams cb,
       SelectiveColorParams sc,
@@ -386,6 +449,8 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       PhotoFilterParams pf,
       ShadowsHighlightsParams sh,
       VibranceParams vibrance,
+
+      // —— 特殊 —— //
       InvertParams invert,
       PosterizeParams posterize,
       ThresholdParams threshold,
@@ -402,6 +467,11 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       bytes[i]     = lut.r[bytes[i]];
       bytes[i + 1] = lut.g[bytes[i + 1]];
       bytes[i + 2] = lut.b[bytes[i + 2]];
+    }
+
+    // 1.5) Denoise（早做：为后续色彩/曲线提供更干净底子）
+    if (!denoise.isNeutral) {
+      DenoiseEngine.applyToRgbaInPlace(bytes, w, h, denoise);
     }
 
     // 2) HSL
@@ -444,12 +514,12 @@ class _AdjustPreviewState extends State<AdjustPreview> {
       VibranceEngine.applyToRgbaInPlace(bytes, w, h, vibrance);
     }
 
-    // 10) 反相（最后一步，确保对最终画面）
+    // 10) 反相（接近最后）
     if (!invert.isNeutral) {
       InvertEngine.applyToRgbaInPlace(bytes, w, h, invert);
     }
 
-    // 11) 色调分离（在早期做，后续仍可再做 HSL、CB 等）
+    // 11) 色调分离
     if (!posterize.isNeutral) {
       PosterizeEngine.applyToRgbaInPlace(bytes, w, h, posterize);
     }
@@ -460,7 +530,7 @@ class _AdjustPreviewState extends State<AdjustPreview> {
     }
 
     // 13) 渐变映射
-    if (!gradientMap.isNeutral) { // ✅ 用参数，不用 widget.gradientMap
+    if (!gradientMap.isNeutral) {
       GradientMapEngine.applyToRgbaInPlace(bytes, w, h, gradientMap);
     }
 

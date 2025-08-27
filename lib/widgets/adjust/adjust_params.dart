@@ -22,6 +22,9 @@ class AdjustParams {
   final P.ChannelMixerParams mixer;
   final P.GradientMapParams gradientMap;
 
+  // —— 降噪 —— //
+  final P.DenoiseParams denoise;
+
   // —— 特殊 —— //
   final P.DesaturateParams desaturate;   // ✅ 新增：去色
   final P.InvertParams invert;
@@ -48,6 +51,9 @@ class AdjustParams {
     // 高级调色
     this.mixer = const P.ChannelMixerParams(),
     this.gradientMap = const P.GradientMapParams(),
+
+    // 降噪
+    this.denoise = const P.DenoiseParams(),
 
     // 特殊
     this.desaturate = const P.DesaturateParams(), // ✅ 默认关闭
@@ -77,6 +83,9 @@ class AdjustParams {
     P.ChannelMixerParams? mixer,
     P.GradientMapParams? gradientMap,
 
+    // 降噪
+    P.DenoiseParams? denoise,
+
     // 特殊
     P.DesaturateParams? desaturate,
     P.InvertParams? invert,
@@ -103,6 +112,9 @@ class AdjustParams {
       // 高级调色
       mixer: mixer ?? this.mixer,
       gradientMap: gradientMap ?? this.gradientMap,
+
+      // 降噪
+      denoise: denoise ?? this.denoise,
 
       // 特殊
       desaturate: desaturate ?? this.desaturate,
