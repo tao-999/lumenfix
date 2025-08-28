@@ -2,9 +2,11 @@
 import 'dart:typed_data';
 import 'dart:io' show Platform;
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show compute; // 💡 后台 Isolate
+import 'package:flutter/foundation.dart' show compute;
 import 'package:image/image.dart' as img;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 import '../../services/gallery_picker.dart';
 import '../../services/photo_saver.dart';
@@ -14,7 +16,9 @@ import '../services/adjust_service.dart';
 import '../services/bokeh_service.dart';
 import '../services/crop_service.dart';
 import '../services/doodle_service.dart';
+import '../services/filter_service.dart';
 import '../services/mosaic_service.dart';
+import '../services/face_service.dart'; // ✅ 人脸美容 Service
 import '../widgets/beautify/beautify_bottom_bar.dart';
 import '../widgets/common/empty_pick_image.dart';
 
@@ -26,30 +30,28 @@ class BeautifyPage extends StatefulWidget {
 }
 
 class _BeautifyPageState extends State<BeautifyPage> {
-  Uint8List? _imageBytes;
+  ValueNotifier<Uint8List>? _image; // ⭐ 唯一数据源
   BeautifyMenu? _selected;
+  bool _busy = false;
 
-  bool _busy = false; // 转码中遮罩
-
-  /// 选图（相册）
+  // ============================== 选图 ==============================
   Future<void> _pickImage() async {
     final bytes = await GalleryPicker.pickOneBytes(context);
     if (!mounted || bytes == null) return;
 
-    // 1) 先即时回显，保证相册路由动画丝滑退场
     setState(() {
-      _imageBytes = bytes;
+      _image = ValueNotifier<Uint8List>(bytes); // 立刻回显
       _selected = null;
     });
 
-    // 2) 待本帧提交后，把重活丢后台 Isolate
+    // 下一帧转 WebP（平台线程）
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+      if (!mounted || _image == null) return;
       setState(() => _busy = true);
       try {
-        final optimized = await _optimizeInBackground(bytes, quality: 80);
-        if (!mounted) return;
-        setState(() => _imageBytes = optimized);
+        final optimized = await _toWebp(_image!.value, quality: 80);
+        if (!mounted || _image == null) return;
+        _image!.value = optimized; // 不换引用，仍然同一个 notifier
       } finally {
         if (mounted) setState(() => _busy = false);
       }
@@ -57,23 +59,27 @@ class _BeautifyPageState extends State<BeautifyPage> {
   }
 
   void _notReady() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('先添加一张图片')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('先添加一张图片')));
   }
 
-  /// 保存当前图片
+  // ============================== 保存 ==============================
   Future<void> _saveCurrent() async {
-    final bytes = _imageBytes;
+    final bytes = _image?.value;
     if (bytes == null) return;
-    final ok = await PhotoSaver.saveToAlbum(bytes, album: 'LumenFix');
+
+    var ok = await PhotoSaver.saveToAlbum(bytes, album: 'LumenFix');
+
+    if (!ok && _isWebp(bytes)) {
+      final jpg = await compute(_anyToJpegIsolate, _IsoAnyArg(bytes, 90));
+      ok = await PhotoSaver.saveToAlbum(jpg, album: 'LumenFix');
+    }
+
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '已保存到相册' : '保存失败')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(ok ? '已保存到相册' : '保存失败')));
   }
 
-  /// iOS 14+ 打开系统“编辑允许访问的照片”
   Future<void> _editAllowedPhotos() async {
     final ok = await GalleryPicker.presentLimitedEditor();
     if (!mounted) return;
@@ -84,9 +90,9 @@ class _BeautifyPageState extends State<BeautifyPage> {
     }
   }
 
-  /// 智能一键美化
+  // =========================== 一键美化 ===========================
   Future<void> _runSmartEnhance() async {
-    if (_imageBytes == null) return _notReady();
+    if (_image == null) return _notReady();
 
     showDialog(
       context: context,
@@ -96,20 +102,18 @@ class _BeautifyPageState extends State<BeautifyPage> {
 
     try {
       final enhanced = await WhitenService.whiten(
-        _imageBytes!,
+        _image!.value,
         strength: 0.4,
         jpegQuality: 95,
       );
-      if (!mounted) return;
-      setState(() {
-        _imageBytes = enhanced;
-        _selected = null;
-      });
+      final optimized = await _toWebp(enhanced, quality: 80);
+      if (!mounted || _image == null) return;
+      _image!.value = optimized;
+      setState(() => _selected = null);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('一键美化失败：$e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('一键美化失败：$e')));
     } finally {
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
@@ -117,9 +121,10 @@ class _BeautifyPageState extends State<BeautifyPage> {
     }
   }
 
+  // ============================== UI ==============================
   @override
   Widget build(BuildContext context) {
-    final hasImage = _imageBytes != null;
+    final hasImage = _image != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -143,12 +148,15 @@ class _BeautifyPageState extends State<BeautifyPage> {
                   child: Container(
                     alignment: Alignment.center,
                     child: hasImage
-                        ? InteractiveViewer(
-                      maxScale: 5,
-                      minScale: 0.5,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: Image.memory(_imageBytes!),
+                        ? ValueListenableBuilder<Uint8List>(
+                      valueListenable: _image!,
+                      builder: (_, bytes, __) => InteractiveViewer(
+                        maxScale: 5,
+                        minScale: 0.5,
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: Image.memory(bytes),
+                        ),
                       ),
                     )
                         : EmptyPickImage(
@@ -165,67 +173,62 @@ class _BeautifyPageState extends State<BeautifyPage> {
                 onSelect: (m) async {
                   if (!hasImage) return _notReady();
 
-                  if (m == BeautifyMenu.autoEnhance) {
-                    await _runSmartEnhance();
-                    return;
-                  }
-                  if (m == BeautifyMenu.crop) {
-                    final out =
-                    await CropService.openEditor(context, _imageBytes!);
-                    if (out != null) {
-                      setState(() {
-                        _imageBytes = out;
-                        _selected = null;
-                      });
+                  Future<void> _applyAndUniform(Uint8List? out) async {
+                    if (out == null) return;
+                    setState(() => _busy = true);
+                    try {
+                      final optimized = await _toWebp(out, quality: 80);
+                      if (!mounted || _image == null) return;
+                      _image!.value = optimized;
+                      setState(() => _selected = null);
+                    } finally {
+                      if (mounted) setState(() => _busy = false);
                     }
-                    return;
                   }
-                  if (m == BeautifyMenu.mosaic) {
-                    final out =
-                    await MosaicService.openEditor(context, _imageBytes!);
-                    if (out != null) {
-                      setState(() {
-                        _imageBytes = out;
-                        _selected = null;
-                      });
-                    }
-                    return;
+
+                  switch (m) {
+                    case BeautifyMenu.autoEnhance:
+                      await _runSmartEnhance();
+                      return;
+
+                    case BeautifyMenu.filter:
+                    // ⭐ Live：页面与弹框共享同一份变量
+                      await FilterService.openEditorLive(context, _image!);
+                      return;
+
+                    case BeautifyMenu.face:
+                    // ✅ 与其它 Live 菜单一致：只调用 Service
+                      await FaceService.openEditorLive(context, _image!);
+                      return;
+
+                    case BeautifyMenu.crop:
+                      await _applyAndUniform(
+                        await CropService.openEditor(context, _image!.value),
+                      );
+                      return;
+                    case BeautifyMenu.mosaic:
+                      await _applyAndUniform(
+                        await MosaicService.openEditor(context, _image!.value),
+                      );
+                      return;
+                    case BeautifyMenu.doodle:
+                      await _applyAndUniform(
+                        await DoodleService.openEditor(context, _image!.value),
+                      );
+                      return;
+                    case BeautifyMenu.bokeh:
+                      await _applyAndUniform(
+                        await BokehService.openEditor(context, _image!.value),
+                      );
+                      return;
+                    case BeautifyMenu.adjust:
+                      await _applyAndUniform(
+                        await AdjustService.openEditor(context, _image!.value),
+                      );
+                      return;
+                    default:
+                      setState(() => _selected = m);
                   }
-                  if (m == BeautifyMenu.doodle) {
-                    final out =
-                    await DoodleService.openEditor(context, _imageBytes!);
-                    if (out != null) {
-                      setState(() {
-                        _imageBytes = out;
-                        _selected = null;
-                      });
-                    }
-                    return;
-                  }
-                  if (m == BeautifyMenu.bokeh) {
-                    final out =
-                    await BokehService.openEditor(context, _imageBytes!);
-                    if (out != null) {
-                      setState(() {
-                        _imageBytes = out;
-                        _selected = null;
-                      });
-                    }
-                    return;
-                  }
-                  if (m == BeautifyMenu.adjust) {
-                    final out =
-                    await AdjustService.openEditor(context, _imageBytes!);
-                    if (out != null) {
-                      setState(() {
-                        _imageBytes = out;
-                        _selected = null;
-                      });
-                    }
-                    return;
-                  }
-                  // 其它工具保持原逻辑
-                  setState(() => _selected = m);
                 },
                 detail: (hasImage && _selected != null)
                     ? const SizedBox.shrink()
@@ -235,7 +238,6 @@ class _BeautifyPageState extends State<BeautifyPage> {
             ],
           ),
 
-          // 轻量遮罩（后台转码中）
           if (_busy)
             const Positioned.fill(
               child: ColoredBox(
@@ -248,84 +250,35 @@ class _BeautifyPageState extends State<BeautifyPage> {
     );
   }
 
-  // =========================================================
-  // 后台优化：所有格式统一转 JPEG(quality)，避免阻塞 UI
-  // =========================================================
-  Future<Uint8List> _optimizeInBackground(
-      Uint8List input, {
-        int quality = 80,
-      }) async {
-    // JPG：最稳的路径，纯 CPU，放后台 Isolate
-    if (_isJpeg(input)) {
-      return compute(_jpeg80Isolate, _IsoJpegArg(input, quality));
-    }
-
-    // 其它常见格式：尝试 image 包（PNG/WebP/GIF 首帧...）
-    final any = await compute(_anyToJpeg80Isolate, _IsoAnyArg(input, quality));
-    if (any.isNotEmpty) return any;
-
-    // HEIC/极少数：走 UI 解码兜底（此时相册路由已退场，不会卡）
-    return _transcodeWithUi(input, quality: quality);
-  }
-
-  // UI 兜底（HEIC 等）：白底合成 → RGBA → image.encodeJpg
-  Future<Uint8List> _transcodeWithUi(
-      Uint8List inputBytes, {
-        int quality = 80,
-      }) async {
+  // ====================== WebP 统一转码（主 isolate） ======================
+  Future<Uint8List> _toWebp(Uint8List input, {int quality = 80}) async {
     try {
-      final codec = await ui.instantiateImageCodec(inputBytes);
-      final frame = await codec.getNextFrame();
-      final src = frame.image;
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-      final rect =
-      Rect.fromLTWH(0, 0, src.width.toDouble(), src.height.toDouble());
-      canvas.drawRect(rect, Paint()..color = const Color(0xFFFFFFFF)); // 白底
-      canvas.drawImageRect(src, rect, rect, Paint()); // SrcOver
-      final flattened =
-      await recorder.endRecording().toImage(src.width, src.height);
-
-      ByteData? bd =
-      await flattened.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
-      bd ??= await flattened.toByteData(format: ui.ImageByteFormat.rawRgba);
-
-      final im4 = img.Image.fromBytes(
-        width: flattened.width,
-        height: flattened.height,
-        bytes: bd!.buffer, // ByteBuffer
-        rowStride: flattened.width * 4,
-        order: img.ChannelOrder.rgba,
+      final out = await FlutterImageCompress.compressWithList(
+        input,
+        format: CompressFormat.webp,
+        quality: quality,
+        keepExif: true,
+        autoCorrectionAngle: true,
       );
-      final out = img.encodeJpg(im4, quality: quality);
-      return Uint8List.fromList(out);
-    } catch (_) {
-      // 真不行就原样返回，宁可不转码也别卡/白片
-      return inputBytes;
-    }
+      if (out.isNotEmpty) return out;
+    } catch (_) {}
+    return compute(_anyToJpegIsolate, _IsoAnyArg(input, quality));
   }
 }
 
-// ======================= 顶层 Isolate 方法 =======================
-// —— 注意：必须是顶层或静态，compute 才能调用 —— //
-
-class _IsoJpegArg {
+// ======================= 顶层 Isolate 方法（回退用） =======================
+class _IsoAnyArg {
   final Uint8List bytes;
   final int quality;
-  const _IsoJpegArg(this.bytes, this.quality);
+  const _IsoAnyArg(this.bytes, this.quality);
 }
 
-Uint8List _jpeg80Isolate(_IsoJpegArg arg) {
+Uint8List _anyToJpegIsolate(_IsoAnyArg arg) {
   try {
-    final im = img.decodeJpg(arg.bytes);
+    final im = img.decodeImage(arg.bytes);
     if (im == null) return arg.bytes;
     img.Image baked;
-    try {
-      baked = img.bakeOrientation(im); // 有些版本可能没有，catch 即可
-    } catch (_) {
-      baked = im;
-    }
+    try { baked = img.bakeOrientation(im); } catch (_) { baked = im; }
     final out = img.encodeJpg(baked, quality: arg.quality);
     return Uint8List.fromList(out);
   } catch (_) {
@@ -333,28 +286,8 @@ Uint8List _jpeg80Isolate(_IsoJpegArg arg) {
   }
 }
 
-class _IsoAnyArg {
-  final Uint8List bytes;
-  final int quality;
-  const _IsoAnyArg(this.bytes, this.quality);
+bool _isWebp(Uint8List b) {
+  if (b.length < 12) return false;
+  return b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46 &&
+      b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50;
 }
-
-Uint8List _anyToJpeg80Isolate(_IsoAnyArg arg) {
-  try {
-    final im = img.decodeImage(arg.bytes); // 尽量吃 PNG/WebP/GIF…
-    if (im == null) return Uint8List(0);   // 返回空，让主流程走 UI 兜底
-    img.Image baked;
-    try {
-      baked = img.bakeOrientation(im);
-    } catch (_) {
-      baked = im;
-    }
-    final out = img.encodeJpg(baked, quality: arg.quality);
-    return Uint8List.fromList(out);
-  } catch (_) {
-    return Uint8List(0);
-  }
-}
-
-bool _isJpeg(Uint8List b) =>
-    b.length >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF;

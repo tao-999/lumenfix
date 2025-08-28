@@ -8,6 +8,7 @@ enum BeautifyMenu {
   crop,
   bokeh,
   mosaic,
+  face,       // ✅ 新增：人脸美容（Sheet 入口）
   doodle,
   blemish,
   restore,
@@ -209,6 +210,7 @@ final List<_MenuItem> _items = [
   _MenuItem(BeautifyMenu.crop, Icons.crop, '裁剪'),
   _MenuItem(BeautifyMenu.bokeh, Icons.blur_on, '背景虚化'),
   _MenuItem(BeautifyMenu.mosaic, Icons.grid_on, '马赛克'),
+  _MenuItem(BeautifyMenu.face, Icons.face_retouching_natural, '人脸美容'), // ✅ 主入口
   _MenuItem(BeautifyMenu.doodle, Icons.brush, '涂鸦'),
   _MenuItem(BeautifyMenu.blemish, Icons.healing, '去瑕疵'),
   _MenuItem(BeautifyMenu.restore, Icons.high_quality, '画质修复'),
