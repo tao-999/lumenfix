@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import '../engine/face_regions.dart';
 import 'panel_common.dart';
 import 'skin_panel.dart';
 import 'shape_panel.dart';
 import 'makeup_panel.dart';
-import '../engine/face_regions.dart';
 
 /// 下方面板入口（只负责分组切换与承载子面板）
 class FacePanel extends StatefulWidget {
@@ -11,23 +11,14 @@ class FacePanel extends StatefulWidget {
     super.key,
     required this.params,
     required this.onChanged,
-    this.onTabChanged,
-    this.onOverlayChanged,      // 子面板可上报一个覆盖层（虚线等）
-    this.regions,               // 人脸区域
-    required this.fitRect,      // 预览中图像所在矩形
-    required this.imageWidth,
-    required this.imageHeight,
+    required this.onTabChanged,
+    this.regions,
   });
 
   final FaceParams params;
   final ValueChanged<FaceParams> onChanged;
-  final ValueChanged<FaceTab>? onTabChanged;
-  final ValueChanged<Widget?>? onOverlayChanged;
-
+  final ValueChanged<FaceTab> onTabChanged;
   final FaceRegions? regions;
-  final Rect fitRect;
-  final int imageWidth;
-  final int imageHeight;
 
   @override
   State<FacePanel> createState() => _FacePanelState();
@@ -49,10 +40,8 @@ class _FacePanelState extends State<FacePanel> {
             child: SegTabs(
               current: _tab,
               onChange: (v) {
-                setState(() => _tab = v);
-                widget.onTabChanged?.call(v);
-                // 切页时清掉上一页 overlay（由父级延后 setState）
-                widget.onOverlayChanged?.call(null);
+                setState(() => _tab = v); // 面板内部切换
+                widget.onTabChanged(v);    // 通知父级选择了哪个功能
               },
             ),
           ),
@@ -60,22 +49,12 @@ class _FacePanelState extends State<FacePanel> {
           const Divider(height: 1, color: Colors.white10),
           Expanded(
             child: switch (_tab) {
-              FaceTab.skin => SkinPanel(
-                params: widget.params,
-                onChanged: _emit,
-              ),
-              FaceTab.shape => ShapePanel(
-                params: widget.params,
-                onChanged: _emit,
-              ),
+              FaceTab.skin   => SkinPanel(params: widget.params, onChanged: _emit),
+              FaceTab.shape  => ShapePanel(params: widget.params, onChanged: _emit),
               FaceTab.makeup => MakeupPanel(
                 params: widget.params,
                 onChanged: _emit,
-                regions: widget.regions,
-                fitRect: widget.fitRect,
-                imageWidth: widget.imageWidth,
-                imageHeight: widget.imageHeight,
-                onOverlayChanged: widget.onOverlayChanged,
+                regions: widget.regions, // 仅供提示用
               ),
             },
           ),

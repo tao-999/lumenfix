@@ -10,7 +10,8 @@ class FaceParams {
   double jawSlim;      // 瘦脸 0..1
   double noseThin;     // 瘦鼻 0..1
   Color  lipColor;     // 唇色
-  double lipAlpha;     // 唇彩强度 0..1
+  double lipAlpha;     // 唇彩强度 0..1（UI 限 0..0.5）
+  bool   lipOn;        // ⭐ 是否启用唇彩（选色即开启）
   bool   acneMode;     // 祛痘点按模式
   double acneSize;     // 祛痘半径
 
@@ -22,7 +23,8 @@ class FaceParams {
     this.jawSlim    = 0,
     this.noseThin   = 0,
     this.lipColor   = const Color(0xFFDE6A6A),
-    this.lipAlpha   = 0,
+    this.lipAlpha   = 0.0,     // ⭐ 默认 0，避免“未选色就见效”
+    this.lipOn      = false,   // ⭐ 默认关闭；选色时置 true
     this.acneMode   = false,
     this.acneSize   = 18,
   });
@@ -30,7 +32,7 @@ class FaceParams {
   FaceParams copyWith({
     double? skinSmooth, double? whitening, double? skinTone,
     double? eyeScale, double? jawSlim, double? noseThin,
-    Color? lipColor, double? lipAlpha,
+    Color? lipColor, double? lipAlpha, bool? lipOn,
     bool? acneMode, double? acneSize,
   }) => FaceParams(
     skinSmooth: skinSmooth ?? this.skinSmooth,
@@ -41,6 +43,7 @@ class FaceParams {
     noseThin  : noseThin   ?? this.noseThin,
     lipColor  : lipColor   ?? this.lipColor,
     lipAlpha  : lipAlpha   ?? this.lipAlpha,
+    lipOn     : lipOn      ?? this.lipOn,      // ⭐ 别漏
     acneMode  : acneMode   ?? this.acneMode,
     acneSize  : acneSize   ?? this.acneSize,
   );
@@ -104,7 +107,7 @@ class SliderTile extends StatelessWidget {
                     child: Slider(
                       value: value.clamp(min, max),
                       min: min, max: max, divisions: divisions,
-                      onChanged: onChanged,
+                      onChanged: onChanged, // 传 null 可禁用
                     ),
                   ),
                 ),
@@ -185,9 +188,9 @@ class SegTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = const [
-      (FaceTab.skin,  Icons.spa,               '美肤'),
-      (FaceTab.shape, Icons.face_3,            '塑形'),
-      (FaceTab.makeup,Icons.face_retouching_natural,'上妆'),
+      (FaceTab.skin,  Icons.spa,                 '美肤'),
+      (FaceTab.shape, Icons.face_3,              '塑形'),
+      (FaceTab.makeup,Icons.face_retouching_natural, '上妆'),
     ];
     return Row(
       children: items.map((e) {
@@ -205,7 +208,7 @@ class SegTabs extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 side: BorderSide(color: selected ? Colors.white : Colors.white24),
-                foregroundColor: Colors.white, // 文本/涟漪都用白
+                foregroundColor: Colors.white,
                 overlayColor: Colors.white12,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -249,6 +252,7 @@ class ColorRow extends StatelessWidget {
                 final sel = c.value == selected.value;
                 return GestureDetector(
                   onTap: () => onPick(c),
+                  behavior: HitTestBehavior.opaque,
                   child: Container(
                     width: 26, height: 26,
                     decoration: BoxDecoration(

@@ -1,4 +1,3 @@
-// lib/widgets/face/panels/skin_panel.dart
 import 'package:flutter/material.dart';
 import 'panel_common.dart';
 

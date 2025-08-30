@@ -1,234 +1,186 @@
-import 'dart:ui' as ui;
+// 📄 lib/widgets/face/panels/makeup_panel.dart
 import 'package:flutter/material.dart';
-import 'panel_common.dart';
 import '../engine/face_regions.dart';
+import 'panel_common.dart';
+import 'lip_palette_sheet.dart'; // ✅ 你的颜色选择弹框
 
-class MakeupPanel extends StatefulWidget {
+/// 上妆（只作用在唇部区域：outer - inner）
+class MakeupPanel extends StatelessWidget {
   const MakeupPanel({
     super.key,
     required this.params,
     required this.onChanged,
-    required this.regions,
-    required this.fitRect,
-    required this.imageWidth,
-    required this.imageHeight,
-    this.onOverlayChanged, // 把需要叠加的 overlay 交给上层
+    this.regions,
   });
 
   final FaceParams params;
   final ValueChanged<FaceParams> onChanged;
-
   final FaceRegions? regions;
-  final Rect fitRect;
-  final int imageWidth;
-  final int imageHeight;
 
-  final ValueChanged<Widget?>? onOverlayChanged;
+  // 快捷常用色（粉/红系）
+  static const _quickPresets = <Color>[
+    Color(0xFFF28AA0),
+    Color(0xFFE35D6A),
+    Color(0xFFD94B69),
+    Color(0xFFB83A5D),
+    Color(0xFFA22052),
+    Color(0xFF8E1D47),
+  ];
 
-  @override
-  State<MakeupPanel> createState() => _MakeupPanelState();
-}
-
-class _MakeupPanelState extends State<MakeupPanel> {
-  late FaceParams _p;
-
-  @override
-  void initState() {
-    super.initState();
-    _p = widget.params;
-    _emitOverlay();
-  }
-
-  @override
-  void didUpdateWidget(covariant MakeupPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.regions != widget.regions ||
-        oldWidget.fitRect != widget.fitRect ||
-        oldWidget.imageWidth != widget.imageWidth ||
-        oldWidget.imageHeight != widget.imageHeight) {
-      _emitOverlay();
-    }
-  }
-
-  void _emitOverlay() {
-    final r = widget.regions;
-    if (r?.lipsPath == null ||
-        widget.imageWidth <= 0 ||
-        widget.imageHeight <= 0 ||
-        widget.fitRect.isEmpty) {
-      // 延后清空，避免父级 build 中 setState
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onOverlayChanged?.call(null);
-      });
-      return;
-    }
-
-    final overlay = CustomPaint(
-      painter: _DashedPathPainter(
-        pathInImageSpace: r!.lipsPath!,
-        fitRect: widget.fitRect,
-        imgW: widget.imageWidth,
-        imgH: widget.imageHeight,
-        color: Colors.white,
-        strokeWidth: 2,
-        dash: 6,
-        gap: 4,
-      ),
+  Future<void> _openAllPalette(BuildContext context) async {
+    final chosen = await showModalBottomSheet<Color>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.black,
+      builder: (_) => LipPaletteSheet(initial: params.lipColor),
     );
-
-    // 延后上报 overlay，避免父级 build 中 setState
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.onOverlayChanged?.call(overlay);
-    });
-  }
-
-  void _updateColor(Color c) {
-    setState(() => _p = _p.copyWith(lipColor: c));
-    widget.onChanged(_p);
-  }
-
-  void _updateAlpha(double a) {
-    setState(() => _p = _p.copyWith(lipAlpha: a));
-    widget.onChanged(_p);
+    if (chosen != null) {
+      // 选色即开启；若当前强度为0，给一个默认可见值 0.3
+      final nextAlpha = params.lipAlpha > 0 ? params.lipAlpha : 0.3;
+      onChanged(
+        params.copyWith(
+          lipColor: chosen,
+          lipOn: true,
+          lipAlpha: nextAlpha.clamp(0, 0.5),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    const swatches = [
-      Color(0xFFEB4E5B), // 樱桃红
-      Color(0xFFF08A7E), // 豆沙
-      Color(0xFFD94A86), // 玫红
-      Color(0xFFB6343B), // 正红
-      Color(0xFF8E2A2A), // 复古砖
-      Color(0xFFF2A2B6), // 少女粉
-    ];
+    final noLips = (regions?.lipsOuterPath ??
+        regions?.lipsInnerPath ??
+        regions?.lipsPath) == null;
+    final enableAlpha = params.lipOn && !noLips;
 
-    return Column(
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 8),
       children: [
-        const SizedBox(height: 10),
-        const Text('唇彩', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (final c in swatches)
-              GestureDetector(
-                onTap: () => _updateColor(c),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  margin: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: c,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _p.lipColor.value == c.value ? Colors.white : Colors.white24,
-                      width: _p.lipColor.value == c.value ? 2 : 1,
-                    ),
+        if (noLips)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Center(
+              child: Text('未识别到唇部区域', style: TextStyle(color: Colors.white70)),
+            ),
+          ),
+
+        // —— 颜色行：第一个是“全量颜色器”，后面是常用快捷色 —— //
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(Icons.color_lens, size: 18, color: Colors.white70),
+              const SizedBox(width: 8),
+              const Text('唇色', style: TextStyle(color: Colors.white, fontSize: 14)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      // 全量颜色器入口（第一个圆）
+                      _PaletteOpener(onTap: () => _openAllPalette(context)),
+                      const SizedBox(width: 10),
+
+                      // 快捷色
+                      ..._quickPresets.map((c) => Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: _Swatch(
+                          color: c,
+                          selected: params.lipOn && c.value == params.lipColor.value,
+                          onTap: () {
+                            final nextAlpha = params.lipAlpha > 0 ? params.lipAlpha : 0.3;
+                            onChanged(
+                              params.copyWith(
+                                lipColor: c,
+                                lipOn: true,
+                                lipAlpha: nextAlpha.clamp(0, 0.5),
+                              ),
+                            );
+                          },
+                        ),
+                      )),
+                    ],
                   ),
                 ),
               ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              const Icon(Icons.opacity, size: 18, color: Colors.white70),
-              Expanded(
-                child: Slider(
-                  value: _p.lipAlpha.clamp(0, 1),
-                  min: 0,
-                  max: 1,
-                  divisions: 20,
-                  label: (_p.lipAlpha * 100).toStringAsFixed(0),
-                  onChanged: _updateAlpha,
-                ),
-              ),
-              Text('${(_p.lipAlpha * 100).round()}%', style: const TextStyle(color: Colors.white70)),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+
+        // 提示：未启用时先选色
+        if (!enableAlpha)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Text('先选择唇色，再调强度', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          ),
+
+        // 强度 0~0.5，未启用时禁用滑条
+        SliderTile(
+          icon: Icons.opacity,
+          title: '唇彩强度',
+          value: params.lipAlpha.clamp(0, 0.5),
+          min: 0, max: 0.5, divisions: 50,
+          onChanged: enableAlpha
+              ? (v) => onChanged(params.copyWith(lipAlpha: v.clamp(0, 0.5)))
+              : null,
+        ),
       ],
     );
   }
 }
 
-/// —— 将图像坐标 Path 映射到屏幕坐标并绘制虚线 —— ///
-class _DashedPathPainter extends CustomPainter {
-  _DashedPathPainter({
-    required this.pathInImageSpace,
-    required this.fitRect,
-    required this.imgW,
-    required this.imgH,
-    this.color = Colors.white,
-    this.strokeWidth = 2.0,
-    this.dash = 6.0,
-    this.gap = 4.0,
-  });
+class _PaletteOpener extends StatelessWidget {
+  const _PaletteOpener({required this.onTap});
+  final VoidCallback onTap;
 
-  final ui.Path pathInImageSpace;
-  final Rect fitRect;
-  final int imgW, imgH;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 30, height: 30,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white10,
+          border: Border.all(color: Colors.white, width: 1.6),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.palette, size: 16, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _Swatch extends StatelessWidget {
+  const _Swatch({required this.color, required this.selected, required this.onTap});
   final Color color;
-  final double strokeWidth, dash, gap;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (fitRect.isEmpty || imgW <= 0 || imgH <= 0) return;
-
-    final m = Matrix4.identity()
-      ..translate(fitRect.left, fitRect.top)
-      ..scale(fitRect.width / imgW, fitRect.height / imgH);
-    final ui.Path mapped = pathInImageSpace.transform(m.storage);
-
-    final dashed = _dashPath(mapped, dash: dash, gap: gap);
-
-    final p = Paint()
-      ..isAntiAlias = true
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..color = color.withOpacity(0.95);
-
-    canvas.drawPath(dashed, p);
-
-    p
-      ..strokeWidth = strokeWidth + 2
-      ..color = color.withOpacity(0.35)
-      ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 2);
-    canvas.drawPath(dashed, p);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedPathPainter old) {
-    return old.pathInImageSpace != pathInImageSpace ||
-        old.fitRect != fitRect ||
-        old.imgW != imgW ||
-        old.imgH != imgH ||
-        old.color != color ||
-        old.strokeWidth != strokeWidth ||
-        old.dash != dash ||
-        old.gap != gap;
-  }
-
-  ui.Path _dashPath(ui.Path src, {required double dash, required double gap}) {
-    final dst = ui.Path();
-    for (final metric in src.computeMetrics()) {
-      final double length = metric.length;
-      double d = 0.0;
-      bool draw = true;
-      while (d < length) {
-        final double seg = draw ? dash : gap;
-        final double next = (d + seg).clamp(0.0, length).toDouble(); // ← num→double
-        if (draw) {
-          dst.addPath(metric.extractPath(d, next), ui.Offset.zero);
-        }
-        d = next;
-        draw = !draw;
-      }
-    }
-    return dst;
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 30, height: 30,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? Colors.white : Colors.white24,
+            width: selected ? 2 : 1,
+          ),
+          boxShadow: const [
+            BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0,1)),
+          ],
+        ),
+      ),
+    );
   }
 }

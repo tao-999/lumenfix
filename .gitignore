@@ -187,3 +187,10 @@ fastlane/screenshots/**/*.png
 # pubspec.lock
 # iOS CocoaPods：保留
 # ios/Podfile.lock
+
+# 忽略整个 .tflite_env 目录
+.tflite_env/
+# 忽略整个 face-parsing.PyTorch 目录
+face-parsing.PyTorch/
+
+.venv/
